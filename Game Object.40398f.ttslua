@@ -1,0 +1,79 @@
+-- Generic game global table
+Game = {
+  players = {
+    inThisGame = {} -- list of players who were seated at game start
+  }
+}
+
+function onLoad(save_state)
+
+end
+
+function getGameTable()
+  return Game
+end
+
+function playerSnapshot()
+  -- take a snapshot at game start of the player colors, so things will still work if they are temp. disconnected
+  local color
+  local availableColors = Player.getAvailableColors()
+  Game.players.inThisGame = {}
+
+  for _, color in ipairs( availableColors ) do
+    if( Player[color].seated ) then
+      table.insert(Game.players.inThisGame, color)
+    end
+  end
+end
+
+function dumpTable(table, isIndexed)
+  if( table == nil ) then
+    print('Table is empty!')
+    return
+  end
+
+  local key, value
+
+  if( isIndexed == nil ) then isIndexed = true end
+
+  if(isIndexed) then
+    for key, value in ipairs(table) do
+      printToAll("key: " .. key .. ", index:" .. value)
+    end
+  else
+    for key, value in pairs(table) do
+      printToAll("key: " .. key .. ", index:" .. value)
+    end
+  end
+end
+
+function matchTableKeyOrder(params)
+	-- returns a table whose keys are sorted into the order of a second tables keys
+  local unorderedTable = params.unorderedTable
+  local orderedTable = params.orderedTable
+  local badParams = 0
+  if(unorderedTable == nil) then
+    print('Game.matchTableKeyOrder: unorderedTable is nil')
+    badParams = 1
+  elseif(orderedTable == nil) then
+    print('Game.matchTableKeyOrder: orderedTable is nil')
+    badParams = 1
+  end
+  if(badParams == 1) then return end
+
+	local sortedTable = {}
+	local key, k, v
+  local foundMatch = 0
+
+	for key in pairs(orderedTable) do
+    print('looking for  ' .. key)
+    for k, v in ipairs(unorderedTable) do
+      if( unorderedTable[k] == key ) then
+  			print('found key' .. key)
+  			table.insert(sortedTable, key)
+  		end
+    end
+	end
+
+	return(sortedTable)
+end

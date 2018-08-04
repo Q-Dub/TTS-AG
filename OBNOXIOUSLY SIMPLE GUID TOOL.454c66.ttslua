@@ -1,0 +1,98 @@
+-- [[ THE OBNOXIOUSLY SIMPLE GUID TOOL by GiantDwarf01 ]] --
+-- Yeah so I was getting annoyed with having to right click
+-- a bunch of individual objects to get their IDs,
+-- so I basically whipped this up right quick.
+-- Super simple (hence the name). Then I added a few
+-- little easter eggs 'cause why not right?
+
+-- Enjoy
+
+function onLoad(save_state)
+  local data = {click_function = "getGUIDs", function_owner = self, label = "GET GUIDS", position = {0, 0.1, 0}, scale = {0.5, 0.5, 0.5}, width = 2000, height = 400, font_size = 400}
+  self.createButton(data)
+  data = {click_function = "nilFunc", function_owner = self, label = "THE OBNOXIOUSLY SIMPLE GUID TOOL", position = {0, 0, -1.1}, scale = {0.5, 0.5, 0.5}, width = 0, height = 0, font_size = 400, font_color = {0.7573, 0.7573, 0.7573, 1}}
+  self.createButton(data)
+  data = {click_function = "nilFunc", function_owner = self, label = "By GiantDwarf", position = {0, 0, -0.9}, scale = {0.2, 0.2, 0.2}, width = 0, height = 0, font_size = 400, font_color = {0.7573, 0.7573, 0.7573, 1}}
+  self.createButton(data)
+  data = {click_function = "help", function_owner = self, label = "Halp", position = {0, 0, 1}, scale = {0.4, 0.5, 0.4}, width = 1100, height = 400, font_size = 400}
+  self.createButton(data)
+end
+
+noSelect = {
+  "You can't get the GUID of nothing... Unless you have an object called nothing that is...",
+  "Make sure you select objects - you know... by clicking on them.",
+  "The GUID is... Nothing. You haven't selected any objects.",
+  "You have a mouse or a track pad - use it. Select objects.",
+}
+
+oneSelect = {
+  "This tool is really made for getting multiple GUIDs... one seems pretty basic...",
+  "Getting GUIDs - oh sorry... GUID. Cause you only selected one object.",
+  "You know you can right click and get the GUID of a single object right?",
+  "There's probably a better way to get a single GUID... but you do you"
+}
+
+ownSelect = {
+  "Hey, that's me!","Getting the GUID of the tool to get the GUID","Why did you select me?"
+}
+
+selectedObjects = {}
+
+function onChat(message, player)
+  if string.lower(message) == "!getguids" then
+    getGUIDs(self, player.color)
+    return false
+  end
+end
+
+function getGUIDs(obj, player)
+  local playerObjs = Player[player].getSelectedObjects()
+  if #playerObjs <= 0 then
+    broadcastToColor("No objects are selected. " .. noSelect[math.random(#noSelect)], player, {1,0,0})
+  elseif #playerObjs == 1 then
+    broadcastToColor(oneSelect[math.random(#oneSelect)], player, {1,1,0})
+  else
+    broadcastToColor("Getting GUIDs...", player, {0,1,0})
+  end
+  local selectedObjects = {}
+  local out = "ref_selectedGUIDs = {\n"
+  for _,obj in pairs(playerObjs) do
+    -- Get the name for the object
+    local name = obj.getName()
+    -- If it doesn't have a name, get the ugly name
+    if name == nil or name == "" then
+      name = obj.name
+    end
+
+    -- See if there's any objects with the same name
+    if selectedObjects[name] ~= nil then
+      -- If there is, append a count to the end of it to differentiate
+      selectedObjects[name] = selectedObjects[name] + 1
+      name = name .. " " .. selectedObjects[name]
+    else
+      -- If there isn't store the name in the table
+      selectedObjects[name] = 0
+    end
+
+    -- Add name and GUID to string
+    out = out .. "        ['"..name.."'] = \"" .. obj.getGUID() .. "\","
+
+    -- Check if the object is this object, just for funs
+    if obj.getGUID() == self.getGUID() then
+      out = out .. " -- " .. ownSelect[math.random(#ownSelect)]
+    end
+    out = out .. "\n"
+  end
+
+  addNotebookTab({
+    title = "GUIDs",
+    body = out .. "}"
+  })
+  broadcastToAll("GUIDs posted to the Notebook", {0,1,0})
+end
+
+function help(obj,player)
+  printToColor("The OBNOXIOUSLY SIMPLE GUID TOOL allows you to select multiple objects and get their GUID with the click of a button. Their GUIDs are then put into the notebook for all your GUID needs. To use the OSGT, simply select the objects you wish to get the GUIDs for, using box select, control-clicking, or whatever other selection method you prefer, and click the big button that says \"GET GUIDS\". You could also use the chat command [00FF00]\"!getGUIDs\". [ffff00]Then go to the notebook to see your GUIDs", player, {1,1,0})
+end
+
+function nilFunc() end

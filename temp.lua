@@ -59,44 +59,10 @@ cow = {}
 
 function onload()
 	Ag = {
-		ScriptingZones = { boards = 'fb5e33', deckSelectButtons = '8b293c' },
-		homePositions = {}, -- TODO need to populate dynamically for peep recall
-
-		--TODO populate dynamically with GUIDs from spawn board
-		peeps = { Purple = {'75d6bb', '8f914b', 'db306d', 'eb883c', 'f38a90'},
-							Red = {'1145a1', 'bdefda', 'd291e4', '7aa697', '445dad'},
-							Brown = {'063ea8', '0504ab', '60361a', 'e1cb00', '35b950'},
-							Green = {'5ed89f', 'e082a2', 'fcd09c', 'b46095', 'e3f486'},
-							Blue = {'98536c', '182092', 'c3ee56', '578516', '6bce00'} },
-
-		Bags = { decks = { E = '9eb064', I = '47d57c', K = '9e3d4c', WM = '28b771', FR = '8afe39',
-											 G = 'fb6a79', C = 'a4d426', FL = 'c54cb9', WA = '0b6410'} },
-
-		Boards = { dayLab = '78928b', fishing = 'e7d3f6', endGame = '375a44',
-							 seedPositions = { threePlayer = { wood2 = {}, clay = {} },
-							 									 fourPlayer = { wood2 = {}, wood = {}, clay2 = {}, tp = {} },
-																 fivePlayer = { wood4 = {}, clay3 = {}, gSpot = {} },
-							 									 baseGame = { wood3 = {}, clay1 = {}, reed1 = {}, fishing = {},
-																 sheep = {}, boar = {}, cattle = {}, stone1 = {}, stone2 = {} }
-															 },
-								player = { Red = "7c4084", Purple = "d349b2", Green = "454b89",
-							 						 Blue = "858dea", White = "179cb5" }
-							},
-
-		Buttons = {},
-
-		Cards = { threePlayer = { clay = 'c2aaf9', wood2 = '11e22f', anyResource = '706011', occ = 'bc4db6' },
-							fourPlayer = { clay2 = '37a094', wood2 = 'aadc49', wood = '91aa89', gSpot = '2ee1f1', occ = '2a1d9a', tp = '2a1d9a' },
-							fivePlayer = { clay3 = '1316e0', wood4 = '470341', zoo = 'b438d7', gSpot = '4db587', occ = 'd4d96d', tp = 'c8734c'}, },
-
-		Players = { thisGame = {} },
-		selectedDecks = {},
-		numPlayers = 0, deckButtonOffset = 2,
- 		}
-
-	Game = getObjectFromGUID('40398f') -- general helper object for common tasks
-
-	createAssembleDecksButton()
+		scriptingZone = getObjectFromGUID('fb5e33'),
+		homePositions = { purple = {-9.74, 1.26, -22.78}, red = {16.62, 1.26, -22.87}, wood = {42.67, 1.26, -4.14},
+											blue = {30.44, 1.26, 21.22}, green = {0.98, 1.26, 21.14} }
+	}
 
   level_1 = getObjectFromGUID('70a876')
   level_2 = getObjectFromGUID('05db33')
@@ -107,25 +73,18 @@ function onload()
   rounds_3 = getObjectFromGUID('b4aad8')
   rounds_4 = getObjectFromGUID('eb2550')
   rounds_5 = getObjectFromGUID('6fd961')
+  number_of_players_button = players_button_setup()
   setup_button = setup()
   minors_button = minors_setup()
   occs_button = occs_setup()
-  --[[food = getObjectFromGUID('f249ab')
+  food = getObjectFromGUID('f249ab')
   wood = getObjectFromGUID('57458b')
   clay = getObjectFromGUID('8a147c')
   stone = getObjectFromGUID('c64ad7')
   reed = getObjectFromGUID('141313')
   sheep = getObjectFromGUID('f851b2')
   pig = getObjectFromGUID('e7b33c')
-  cow = getObjectFromGUID('f0c5e7')]]
-	food = getObjectFromGUID('8e8091')
-  wood = getObjectFromGUID('c4d916')
-  clay = getObjectFromGUID('4e06e8')
-  stone = getObjectFromGUID('fe3238')
-  reed = getObjectFromGUID('9c217a')
-  sheep = getObjectFromGUID('ca7c6c')
-  pig = getObjectFromGUID('d02a32')
-  cow = getObjectFromGUID('ee948a')
+  cow = getObjectFromGUID('f0c5e7')
   card_14 = getObjectFromGUID('a1e455')
 end
 
@@ -142,232 +101,6 @@ function setup()
   --button_parameters.font_size = 200
   button.createButton(button_parameters)
   return button
-end
-
-function run_setup()
-  rounds_3.shuffle()
-  rounds_4.shuffle()
-  rounds_5.shuffle()
-  level_1.shuffle()
-  level_2.shuffle()
-  level_3.shuffle()
-  level_4.shuffle()
-  level_5.shuffle()
-
-  startLuaCoroutine(Global, 'remove_and_deal')
-end
-
-function remove_and_deal()
-  if number_of_players == 3 then
-    waitFrames(15)
-    local params = {}
-    params.position = { -2.44, 1.13, 4.5 }
-    params.rotation = { 0, 180, 0}
-    card1 = rounds_3.takeObject(params)
-    waitFrames(15)
-    local params = {}
-    params.position = { 0.43, 1.13, 4.5 }
-    params.rotation = { 0, 180, 0}
-    card2 = rounds_3.takeObject(params)
-    waitFrames(15)
-    local params = {}
-    params.position = { -2.37, 1.13, 0.11 }
-    params.rotation = { 0, 180, 0}
-    card3 = rounds_3.takeObject(params)
-    waitFrames(15)
-    local params = {}
-    params.position = { 0.43, 1.13, 0.11 }
-    params.rotation = { 0, 180, 0}
-    card4 = rounds_3.takeObject(params)
-    --rounds_3.destruct()
-    waitFrames(60)
-    card1.lock()
-    card2.lock()
-    card3.lock()
-    card4.lock()
-  end
-
-  if number_of_players == 4 then
-    waitFrames(15)
-    local params = {}
-    params.position = { -2.44, 1.13,4.5 }
-    params.rotation = { 0, 180, 0}
-    card1 = rounds_4.takeObject(params)
-    waitFrames(15)
-    local params = {}
-    params.position = { 0.43, 1.13,4.5 }
-    params.rotation = { 0, 180, 0}
-    card2 = rounds_4.takeObject(params)
-    waitFrames(15)
-    local params = {}
-    params.position = { -2.37, 1.13,0.11 }
-    params.rotation = { 0, 180, 0}
-    card3 = rounds_4.takeObject(params)
-    waitFrames(15)
-    local params = {}
-    params.position = { 0.43, 1.13,0.11 }
-    params.rotation = { 0, 180, 0}
-    card4 = rounds_4.takeObject(params)
-    waitFrames(15)
-    local params = {}
-    params.position = { -2.44, 1.13,-4.17 }
-    params.rotation = { 0, 180, 0}
-    card5 = rounds_4.takeObject(params)
-    waitFrames(15)
-    local params = {}
-    params.position = { 0.43, 1.13,-4.17 }
-    params.rotation = { 0, 180, 0}
-    card6 = rounds_4.takeObject(params)
-    --rounds_4.destruct()
-    waitFrames(60)
-    card1.lock()
-    card2.lock()
-    card3.lock()
-    card4.lock()
-    card5.lock()
-    card6.lock()
-  end
-
-  if number_of_players == 5 then
-    waitFrames(15)
-    local params = {}
-    params.position = { -2.44, 1.13,4.5 }
-    params.rotation = { 0, 180, 0}
-    card1 = rounds_5.takeObject(params)
-    waitFrames(15)
-    local params = {}
-    params.position = { 0.43, 1.13,4.5 }
-    params.rotation = { 0, 180, 0}
-    card2 = rounds_5.takeObject(params)
-    waitFrames(15)
-    local params = {}
-    params.position = { -2.37, 1.13,0.11 }
-    params.rotation = { 0, 180, 0}
-    card3 = rounds_5.takeObject(params)
-    waitFrames(15)
-    local params = {}
-    params.position = { 0.43, 1.13,0.11 }
-    params.rotation = { 0, 180, 0}
-    card4 = rounds_5.takeObject(params)
-    waitFrames(15)
-    local params = {}
-    params.position = { -2.44, 1.13,-4.17 }
-    params.rotation = { 0, 180, 0}
-    card5 = rounds_5.takeObject(params)
-    waitFrames(15)
-    local params = {}
-    params.position = { 0.43, 1.13,-4.17 }
-    params.rotation = { 0, 180, 0}
-    card6 = rounds_5.takeObject(params)
-    --rounds_5.destruct()
-    waitFrames(60)
-    card1.lock()
-    card2.lock()
-    card3.lock()
-    card4.lock()
-    card5.lock()
-    card6.lock()
-  end
-
-  --destroyObject(number_of_players_button)
-  --destroyObject(minors_button)
-  --destroyObject(occs_button)
-
-  local button_parameters = {}
-  button_parameters.index = 0
-  button_parameters.position = {0, 1.0, 0}
-  --button_parameters.rotation = {0, 180, 0}
-  button_parameters.click_function = "start_first_round"
-  button_parameters.label = "Start"
-  setup_button.editButton(button_parameters)
-
-  waitFrames(15)
-  local params = {}
-  params.position = { 7.87, 1.13, 4.57 }
-  params.rotation = { 0, 180, 180}
-  card_1 = level_1.takeObject(params)
-  waitFrames(15)
-  local params = {}
-  params.position = { 10.99, 1.13,4.57 }
-  params.rotation = { 0, 180, 180}
-  card_2 = level_1.takeObject(params)
-  waitFrames(15)
-  local params = {}
-  params.position = { 10.99, 1.13,0.23 }
-  params.rotation = { 0, 180, 180}
-  card_3 = level_1.takeObject(params)
-  waitFrames(15)
-  local params = {}
-  params.position = { 10.99, 1.13,-4.25 }
-  params.rotation = { 0, 180, 180}
-  card_4 = level_1.takeObject(params)
-  --level_1.destruct()
-
-  waitFrames(15)
-  local params = {}
-  params.position = { 13.95, 1.13,4.57 }
-  params.rotation = { 0, 180, 180}
-  card_5 = level_2.takeObject(params)
-  waitFrames(15)
-  local params = {}
-  params.position = { 13.95, 1.13,0.23 }
-  params.rotation = { 0, 180, 180}
-  card_6 = level_2.takeObject(params)
-  waitFrames(15)
-  local params = {}
-  params.position = { 13.95, 1.13,-4.25 }
-  params.rotation = { 0, 180, 180}
-  card_7 = level_2.takeObject(params)
-  --level_2.destruct()
-
-  waitFrames(15)
-  local params = {}
-  params.position = { 18.05, 1.13,4.42 }
-  params.rotation = { 0, 180, 180}
-  card_8 = level_3.takeObject(params)
-  waitFrames(15)
-  local params = {}
-  params.position = { 18.05, 1.13,0.0 }
-  params.rotation = { 0, 180, 180}
-  card_9 = level_3.takeObject(params)
-  waitFrames(15)
-  --level_3.destruct()
-
-  waitFrames(15)
-  local params = {}
-  params.position = { 20.85, 1.13,4.42 }
-  params.rotation = { 0, 180, 180}
-  card_10 = level_4.takeObject(params)
-  waitFrames(15)
-  local params = {}
-  params.position = { 20.85, 1.13,0.0 }
-  params.rotation = { 0, 180, 180}
-  card_11 = level_4.takeObject(params)
-  waitFrames(15)
-  --level_4.destruct()
-
-  waitFrames(15)
-  local params = {}
-  params.position = { 24, 1.13,4.42 }
-  params.rotation = { 0, 180, 180}
-  card_12 = level_5.takeObject(params)
-  waitFrames(15)
-  local params = {}
-  params.position = { 24, 1.13,0.0 }
-  params.rotation = { 0, 180, 180}
-  card_13 = level_5.takeObject(params)
-  waitFrames(15)
-  --level_5.destruct()
-
-  waitFrames(15)
-  local params = {}
-  params.position = { 26.9, 1.13,4.42}
-  params.rotation = { 0, 180, 180}
-  card_14 = level_6.takeObject(params)
-  waitFrames(15)
-  --level_6.destruct()
-
-  return 1
 end
 
 function minors_setup()
@@ -454,20 +187,21 @@ function onClick_RotateHandsR()
     end
 end
 
+
+-- getSeatedPlayers() doesn't return the actual Player objects.
+-- This function will instead return the 'real' Player objects.
 function getRealSeatedPlayers()
-	-- getSeatedPlayers() doesn't return the actual Player objects.
-	-- This function will instead return the 'real' Player objects.
-  local playerColors = getSeatedPlayers()
-  local players = {}
-  local newI = 1
-  for i, playerColor in pairs(playerColors) do
-      if Player[playerColor].getPlayerHand() != nil
-      then
-          players[newI] = Player[playerColor]
-          newI = newI + 1
-      end
-  end
-  return players
+    local playerColors = getSeatedPlayers()
+    local players = {}
+    local newI = 1
+    for i, playerColor in pairs(playerColors) do
+        if Player[playerColor].getPlayerHand() != nil
+        then
+            players[newI] = Player[playerColor]
+            newI = newI + 1
+        end
+    end
+    return players
 end
 
 function getPlayerHandPosition(player)
@@ -510,19 +244,19 @@ function getPlayerAngle(player)
     return math.atan2(hand.pos_z, hand.pos_x)
 end
 
+-- Copied from LUA docs... returns iterator in order of keys
 function pairsByKeys (t, f)
-	-- Copied from LUA docs... returns iterator in order of keys
-  local a = {}
-  for n in pairs(t) do table.insert(a, n) end
-      table.sort(a, f)
-      local i = 0      -- iterator variable
-      local iter = function ()   -- iterator function
-      i = i + 1
-      if a[i] == nil then return nil
-          else return a[i], t[a[i]]
-      end
-  end
-  return iter
+    local a = {}
+    for n in pairs(t) do table.insert(a, n) end
+        table.sort(a, f)
+        local i = 0      -- iterator variable
+        local iter = function ()   -- iterator function
+        i = i + 1
+        if a[i] == nil then return nil
+            else return a[i], t[a[i]]
+        end
+    end
+    return iter
 end
 
 function reverseArray(tbl)
@@ -544,7 +278,294 @@ function flipDraftCounters()
   end
 end
 
+function run_setup()
+  rounds_3.shuffle()
+  rounds_4.shuffle()
+  rounds_5.shuffle()
+  level_1.shuffle()
+  level_2.shuffle()
+  level_3.shuffle()
+  level_4.shuffle()
+  level_5.shuffle()
+
+  startLuaCoroutine(Global, 'remove_and_deal')
+end
+
+function remove_and_deal()
+  if number_of_players == 3 then
+    waitFrames(15)
+    local params = {}
+    params.position = { -2.44, 1.13, 4.5 }
+    params.rotation = { 0, 180, 0}
+    card1 = rounds_3.takeObject(params)
+    waitFrames(15)
+    local params = {}
+    params.position = { 0.43, 1.13, 4.5 }
+    params.rotation = { 0, 180, 0}
+    card2 = rounds_3.takeObject(params)
+    waitFrames(15)
+    local params = {}
+    params.position = { -2.37, 1.13, 0.11 }
+    params.rotation = { 0, 180, 0}
+    card3 = rounds_3.takeObject(params)
+    waitFrames(15)
+    local params = {}
+    params.position = { 0.43, 1.13, 0.11 }
+    params.rotation = { 0, 180, 0}
+    card4 = rounds_3.takeObject(params)
+    rounds_3.destruct()
+    waitFrames(60)
+    card1.lock()
+    card2.lock()
+    card3.lock()
+    card4.lock()
+  end
+
+  if number_of_players == 4 then
+    waitFrames(15)
+    local params = {}
+    params.position = { -2.44, 1.13,4.5 }
+    params.rotation = { 0, 180, 0}
+    card1 = rounds_4.takeObject(params)
+    waitFrames(15)
+    local params = {}
+    params.position = { 0.43, 1.13,4.5 }
+    params.rotation = { 0, 180, 0}
+    card2 = rounds_4.takeObject(params)
+    waitFrames(15)
+    local params = {}
+    params.position = { -2.37, 1.13,0.11 }
+    params.rotation = { 0, 180, 0}
+    card3 = rounds_4.takeObject(params)
+    waitFrames(15)
+    local params = {}
+    params.position = { 0.43, 1.13,0.11 }
+    params.rotation = { 0, 180, 0}
+    card4 = rounds_4.takeObject(params)
+    waitFrames(15)
+    local params = {}
+    params.position = { -2.44, 1.13,-4.17 }
+    params.rotation = { 0, 180, 0}
+    card5 = rounds_4.takeObject(params)
+    waitFrames(15)
+    local params = {}
+    params.position = { 0.43, 1.13,-4.17 }
+    params.rotation = { 0, 180, 0}
+    card6 = rounds_4.takeObject(params)
+    rounds_4.destruct()
+    waitFrames(60)
+    card1.lock()
+    card2.lock()
+    card3.lock()
+    card4.lock()
+    card5.lock()
+    card6.lock()
+  end
+
+  if number_of_players == 5 then
+    waitFrames(15)
+    local params = {}
+    params.position = { -2.44, 1.13,4.5 }
+    params.rotation = { 0, 180, 0}
+    card1 = rounds_5.takeObject(params)
+    waitFrames(15)
+    local params = {}
+    params.position = { 0.43, 1.13,4.5 }
+    params.rotation = { 0, 180, 0}
+    card2 = rounds_5.takeObject(params)
+    waitFrames(15)
+    local params = {}
+    params.position = { -2.37, 1.13,0.11 }
+    params.rotation = { 0, 180, 0}
+    card3 = rounds_5.takeObject(params)
+    waitFrames(15)
+    local params = {}
+    params.position = { 0.43, 1.13,0.11 }
+    params.rotation = { 0, 180, 0}
+    card4 = rounds_5.takeObject(params)
+    waitFrames(15)
+    local params = {}
+    params.position = { -2.44, 1.13,-4.17 }
+    params.rotation = { 0, 180, 0}
+    card5 = rounds_5.takeObject(params)
+    waitFrames(15)
+    local params = {}
+    params.position = { 0.43, 1.13,-4.17 }
+    params.rotation = { 0, 180, 0}
+    card6 = rounds_5.takeObject(params)
+    rounds_5.destruct()
+    waitFrames(60)
+    card1.lock()
+    card2.lock()
+    card3.lock()
+    card4.lock()
+    card5.lock()
+    card6.lock()
+  end
+
+  destroyObject(number_of_players_button)
+  destroyObject(minors_button)
+  destroyObject(occs_button)
+
+  local button_parameters = {}
+  button_parameters.index = 0
+  button_parameters.position = {0, 1.0, 0}
+  --button_parameters.rotation = {0, 180, 0}
+  button_parameters.click_function = "start_first_round"
+  button_parameters.label = "Start"
+  setup_button.editButton(button_parameters)
+
+  waitFrames(15)
+  local params = {}
+  params.position = { 7.87, 1.13, 4.57 }
+  params.rotation = { 0, 180, 180}
+  card_1 = level_1.takeObject(params)
+  waitFrames(15)
+  local params = {}
+  params.position = { 10.99, 1.13,4.57 }
+  params.rotation = { 0, 180, 180}
+  card_2 = level_1.takeObject(params)
+  waitFrames(15)
+  local params = {}
+  params.position = { 10.99, 1.13,0.23 }
+  params.rotation = { 0, 180, 180}
+  card_3 = level_1.takeObject(params)
+  waitFrames(15)
+  local params = {}
+  params.position = { 10.99, 1.13,-4.25 }
+  params.rotation = { 0, 180, 180}
+  card_4 = level_1.takeObject(params)
+  level_1.destruct()
+
+  waitFrames(15)
+  local params = {}
+  params.position = { 13.95, 1.13,4.57 }
+  params.rotation = { 0, 180, 180}
+  card_5 = level_2.takeObject(params)
+  waitFrames(15)
+  local params = {}
+  params.position = { 13.95, 1.13,0.23 }
+  params.rotation = { 0, 180, 180}
+  card_6 = level_2.takeObject(params)
+  waitFrames(15)
+  local params = {}
+  params.position = { 13.95, 1.13,-4.25 }
+  params.rotation = { 0, 180, 180}
+  card_7 = level_2.takeObject(params)
+  level_2.destruct()
+
+  waitFrames(15)
+  local params = {}
+  params.position = { 18.05, 1.13,4.42 }
+  params.rotation = { 0, 180, 180}
+  card_8 = level_3.takeObject(params)
+  waitFrames(15)
+  local params = {}
+  params.position = { 18.05, 1.13,0.0 }
+  params.rotation = { 0, 180, 180}
+  card_9 = level_3.takeObject(params)
+  waitFrames(15)
+  level_3.destruct()
+
+  waitFrames(15)
+  local params = {}
+  params.position = { 20.85, 1.13,4.42 }
+  params.rotation = { 0, 180, 180}
+  card_10 = level_4.takeObject(params)
+  waitFrames(15)
+  local params = {}
+  params.position = { 20.85, 1.13,0.0 }
+  params.rotation = { 0, 180, 180}
+  card_11 = level_4.takeObject(params)
+  waitFrames(15)
+  level_4.destruct()
+
+  waitFrames(15)
+  local params = {}
+  params.position = { 24, 1.13,4.42 }
+  params.rotation = { 0, 180, 180}
+  card_12 = level_5.takeObject(params)
+  waitFrames(15)
+  local params = {}
+  params.position = { 24, 1.13,0.0 }
+  params.rotation = { 0, 180, 180}
+  card_13 = level_5.takeObject(params)
+  waitFrames(15)
+  level_5.destruct()
+
+  waitFrames(15)
+  local params = {}
+  params.position = { 26.9, 1.13,4.42}
+  params.rotation = { 0, 180, 180}
+  card_14 = level_6.takeObject(params)
+  waitFrames(15)
+  level_6.destruct()
+
+  return 1
+end
+
+function players_button_setup()
+  number_of_players = 2
+  local button = getObjectFromGUID('df68c1')
+  local button_parameters = {}
+  button_parameters.click_function = "set_three_players"
+  button_parameters.label = "# Players:\n 2"
+  button_parameters.function_owner = nil
+  button_parameters.position = {0.0, 1.0, 0.0}
+  ---button_parameters.rotation = {x, y, z}
+  button_parameters.width = 500
+  button_parameters.height = 500
+  --button_parameters.font_size = 150
+  button.createButton(button_parameters)
+  return button
+end
+
+function set_two_players()
+  number_of_players = 2
+  local button_parameters = {}
+  button_parameters.index = 0
+  button_parameters.position = {0.0, 1.0, 0.0}
+  ---button_parameters.rotation = {x, y, z}
+  button_parameters.click_function = "set_three_players"
+  button_parameters.label = "# Players:\n 2"
+  number_of_players_button.editButton(button_parameters)
+end
+
+function set_three_players()
+  number_of_players = 3
+  local button_parameters = {}
+  button_parameters.index = 0
+  button_parameters.position = {0.0, 1.0, 0.0}
+  ---button_parameters.rotation = {x, y, z}
+  button_parameters.click_function = "set_four_players"
+  button_parameters.label = "# Players:\n 3"
+  number_of_players_button.editButton(button_parameters)
+end
+
+function set_four_players()
+  number_of_players = 4
+  local button_parameters = {}
+  button_parameters.index = 0
+  button_parameters.position = {0.0, 1.0, 0.0}
+  ---button_parameters.rotation = {x, y, z}
+  button_parameters.click_function = "set_five_players"
+  button_parameters.label = "# Players:\n 4"
+  number_of_players_button.editButton(button_parameters)
+end
+
+function set_five_players()
+  number_of_players = 5
+  local button_parameters = {}
+  button_parameters.index = 0
+  button_parameters.position = {0.0, 1.0, 0.0}
+  ---button_parameters.rotation = {x, y, z}
+  button_parameters.click_function = "set_two_players"
+  button_parameters.label = "# Players:\n 5"
+  number_of_players_button.editButton(button_parameters)
+end
+
 function start_first_round()
+	recallDudes()
   current_round = 1
   local button_parameters = {}
   button_parameters.index = 0
@@ -1027,7 +1048,7 @@ function round_10()
   if card_5.getGUID() == stone_1_id then
     local params = {}
     params.position = { 13.95, 2, 4.57 }
-    stone.takeObsject(params)
+    stone.takeObject(params)
   end
   if card_6.getGUID() == stone_1_id then
     local params = {}
@@ -1642,90 +1663,11 @@ function waitFrames(frames)
     end
 end
 
-function randomizeSeats()
-	local availableColors = Player.getAvailableColors()
-	local randomizedPositions = {}
-	local numColors = #availableColors
-end
-
-function calculateSeedPositions()
-	local dayLabBoard = getObjectFromGUID(Ag.Boards.dayLab)
-	local fishingBoard = getObjectFromGUID(Ag.Boards.fishing)
-	local endGameBoard = getObjectFromGUID(Ag.Boards.endGame)
-
-	--Ag.Boards.seedPositions[]
-end
-
-function calculateHomePositions()
-
-end
-
 function recallDudes()
 -- bring peeps back to homes at the start of a new round
-	local color, peepGUID, peepObj
-
-	for _, color in ipairs( Player.getAvailableColors() ) do
-		--print('checking color '..color)
-		--if(Ag.peeps[color] ~= nil) then
-		for _, peepGUID in pairs(Ag.peeps[color]) do
-			peepObj = getObjectFromGUID(peepGUID)
-			if( peepObj ~= nil) then peepObj.setPositionSmooth(Ag.homePositions[color], false, true) end
-				--peepPosition = peepObj.getPosition()
-				--if(peepPosition[1] > -42) then
-				--print(color..' peep '..peepGUID..' needs to come home!')
-				--print(color..' peep '..peepGUID..' is at '..peepPosition[1]..', '..peepPosition[2]..', '..peepPosition[3])
-			--end
-		end
+local zoneObjects, obj
+	zoneObjects = Ag.scriptingZone.getObjects()
+	for _, obj in pairs(zoneObjects) do
+		print(obj.tooltip)
 	end
 end
-
-function createAssembleDecksButton()
-	local button = getObjectFromGUID('00e549')
-  local params = {
-		click_function = "onClickAssembleDecks",
-		label = "Assemble\nDecks",
-	  position = {0.0, 1.0, 0.0},
-	  width = 500,
-	  height = 500
-	}
-  button.createButton(params)
-end
-
-function onClickAssembleDecks()
-	local buttonZone = getObjectFromGUID(Ag.ScriptingZones.deckSelectButtons)
-	local objectTable = buttonZone.getObjects() -- Zone.getObjects() returns {Object, ...}
-	local selectedDecks, testTable, chosenDecks = {}, {}, {}
-	local obj, deck, i
-
-	Ag.selectedDecks = {} -- reset the decks in case previously initialized
-	for _, obj in ipairs(objectTable) do
-		if( obj.getStateId() == 1) then
-			table.insert( chosenDecks, obj.getName() )
-			--table.insert( Ag.selectedDecks, obj.getName() )
-		end
-	end
-
-	if( Ag.selectedDecks == nil) then
-		print("Please select at least one deck!")
-	elseif( #(Ag.selectedDecks) == 1 ) then
-		--deck = Ag.selectedDecks[1]
-		--print( 'Deck in play: ' .. deck) )
-		print( 'Deck in play: ' .. Ag.selectedDecks[1] )
-	else
-		local params = { unorderedTable = chosenDecks, orderedTable = Ag.Bags.decks }
-
-		testTable = Game.call('matchTableKeyOrder', params)
-		printToAll( 'Decks in play:')
-		--for i, deck in ipairs(Ag.selectedDecks) do
-		for i, deck in ipairs(testTable) do
-			printToAll(deck)
-			--Ag.Bags.decks[deck]
-		end
-	end
-	--Game.call( 'dumpTable', Ag.selectedDecks )
-end
-
-function createDeckSwitchButtons()
-
-end
--- button.UI.setXML
