@@ -1,50 +1,66 @@
--- Generic game global table
-Game = {
-  players = {
-    inThisGame = {} -- list of players who were seated at game start
-  }
-}
-
 function onLoad(save_state)
-
+  self.interactable = false
 end
 
-function getGameTable()
-  return Game
-end
-
-function playerSnapshot()
-  -- take a snapshot at game start of the player colors, so things will still work if they are temp. disconnected
-  local color
-  local availableColors = Player.getAvailableColors()
-  Game.players.inThisGame = {}
-
-  for _, color in ipairs( availableColors ) do
-    if( Player[color].seated ) then
-      table.insert(Game.players.inThisGame, color)
-    end
+function dumpTable(table)
+  if( table == nil) then
+    log('Game.dumpTable Table is empty, exiting!')
+    return
   end
-end
 
-function dumpTable(table, isIndexed)
-  if( table == nil ) then
-    print('Table is empty!')
+  if( type(table) ~= 'table' ) then
+    log('Game.dumpTable: not a table! (' .. type(table) .. ')')
     return
   end
 
   local key, value
-
-  if( isIndexed == nil ) then isIndexed = true end
-
-  if(isIndexed) then
-    for key, value in ipairs(table) do
-      printToAll("key: " .. key .. ", index:" .. value)
-    end
-  else
-    for key, value in pairs(table) do
-      printToAll("key: " .. key .. ", index:" .. value)
+  log('=== output from Game.dumpTable ===')
+  for key, value in pairs(table) do
+    if( type(value) == 'table' ) then
+      log('key: ' .. key)
+      log(' value is table...')
+      dumpTable(value)
+    else
+      log("key: " .. key .. ", value:" .. value)
     end
   end
+end
+
+function inTable(table, searchValue)
+  -- return false if table is nil
+  if(table == nil) then return false end
+
+  local k, v
+
+  for k, v in pairs(table) do
+    if(v == searchValue) then return true end
+  end
+  return false
+end
+
+function playerSnapshot()
+  -- take a snapshot at game start of the player colors, so things will still work if they are temp. disconnected
+  local inGame = {} -- returned table of colors in this game at present moment
+  local i, color
+  local availableColors = Player.getAvailableColors()
+
+  for i, color in pairs(availableColors) do
+    if( Player[color].seated ) then
+      log('found seated player: ' .. color)
+      -- for some reason getAvailableColors() returns each color thrice, so ensure no duplicates
+      if( inTable(inGame, color) == false ) then
+        table.insert(inGame, color)
+      end
+    end
+  end
+
+  return inGame
+end
+
+function randomizeSeats()
+	local availableColors = Player.getAvailableColors()
+	local randomizedPositions = {}
+	local numColors = #availableColors
 end
 
 function matchTableKeyOrder(params)
@@ -53,10 +69,10 @@ function matchTableKeyOrder(params)
   local orderedTable = params.orderedTable
   local badParams = 0
   if(unorderedTable == nil) then
-    print('Game.matchTableKeyOrder: unorderedTable is nil')
+    log('Game.matchTableKeyOrder: unorderedTable is nil')
     badParams = 1
   elseif(orderedTable == nil) then
-    print('Game.matchTableKeyOrder: orderedTable is nil')
+    log('Game.matchTableKeyOrder: orderedTable is nil')
     badParams = 1
   end
   if(badParams == 1) then return end
@@ -66,14 +82,79 @@ function matchTableKeyOrder(params)
   local foundMatch = 0
 
 	for key in pairs(orderedTable) do
-    print('looking for  ' .. key)
+    log('looking for  ' .. key)
     for k, v in ipairs(unorderedTable) do
       if( unorderedTable[k] == key ) then
-  			print('found key' .. key)
+  			log('found key' .. key)
   			table.insert(sortedTable, key)
   		end
     end
 	end
 
 	return(sortedTable)
+end
+
+function reverseArray(tbl)
+  for i=1, math.floor(#tbl / 2) do
+    local tmp = tbl[i]
+    tbl[i] = tbl[#tbl - i + 1]
+    tbl[#tbl - i + 1] = tmp
+  end
+end
+
+function vectorMath(params)
+  -- params = table1, table2, operator
+  -- receive two tables, return the first one modified by any matching keys in the second one
+  -- allowed operations: '+', '-', '*', '/', '%'
+  local t1 = params.t1
+  local t2 = params.t2
+  local operator = params.operator
+
+  -- check legit operator
+
+  if( type(t1) ~= 'table' ) then log( 'Game.vectorMath: parameter one is not a table! ' .. type(t1) ) return end
+  if( type(t2) ~= 'table' ) then log( 'Game.vectorMath: parameter two is not a table! ' .. type(t2) ) return end
+
+  -- check if either table is empty, return other table if so
+  if( #t1 == 0 ) then return t2 end
+  if( #t2 == 0 ) then return t1 end
+
+  --match as many keys as we can, and perform given operation
+  local key, value
+  local returnVector = {}
+  for key, value in pairs(t1) do
+    if( t2[key] == nil ) then
+      -- map x,y,z, even if not in second table
+      if( key == 'x' ) then t2[key] = t2[1]
+      elseif( key == 'y' ) then t2[key] = t2[2]
+      elseif( key == 'z' ) then t2[key] = t2[3]
+      else
+        returnVector[key] = value
+      end
+    end
+
+    -- test again, with x,y,z added
+    if( t2[key] ~= nil ) then
+      if    ( operator == '+' ) then returnVector[key] = value + t2[key]
+      elseif( operator == '-' ) then returnVector[key] = value - t2[key]
+      elseif( operator == '*' ) then returnVector[key] = value * t2[key]
+      elseif( operator == '/' ) then returnVector[key] = value / t2[key]
+      elseif( operator == '%' ) then returnVector[key] = value % t2[key]
+      else log('Game.vectorMath: ILLEGAL OPERATOR!') return t1 end
+    end
+    --log('=========== set returnVector[' .. key .. '] to ' .. returnVector[key])
+  end
+  --log('TABLE 1 DUMP * * * ')
+  --dumpTable(t1)
+
+  --log('TABLE 2 DUMP * * * ')
+  --dumpTable(t2)
+  return returnVector
+end
+
+function waitFrames(frames)
+  while frames > 0 do
+      coroutine.yield(0)
+      frames = frames - 1
+  end
 end

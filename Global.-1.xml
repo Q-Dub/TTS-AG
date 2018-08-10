@@ -1,1 +1,24 @@
-<!-- Xml UI. See documentation: https://api.tabletopsimulator.com/ui/introUI/ -->
+<!--Defaults>
+  <Dropdown alignment="MiddleCenter" />
+</Defaults-->
+<!--Panel
+  id="gameOptions"
+  height="400"
+  width="400"
+  color="rgba(0,0,0,0.6)"
+  rectAlignment="UpperCenter"
+  offsetXY="0 -80"
+  hideAnimation="FadeOut"
+  animationDuration="0.5"
+  allowDragging="true"
+  returnToOriginalPositionWhenReleased="false">
+<VerticalLayout>
+    <Button>Button One</Button>
+    <Button>Button Two</Button>
+    <Dropdown id="dealOptions" onValueChanged="onClickDealOption">
+       <Option selected="true">Draft</Option>
+       <Option>Deal and Pitch</Option>
+       <Option>No Draft</Option>
+    </Dropdown>
+  </VerticalLayout>
+</Panel-->
