@@ -46,7 +46,6 @@ function playerSnapshot()
 
   for i, color in pairs(availableColors) do
     if( Player[color].seated ) then
-      log('found seated player: ' .. color)
       -- for some reason getAvailableColors() returns each color thrice, so ensure no duplicates
       if( inTable(inGame, color) == false ) then
         table.insert(inGame, color)
@@ -82,10 +81,10 @@ function matchTableKeyOrder(params)
   local foundMatch = 0
 
 	for key in pairs(orderedTable) do
-    log('looking for  ' .. key)
+    --log('looking for  ' .. key)
     for k, v in ipairs(unorderedTable) do
       if( unorderedTable[k] == key ) then
-  			log('found key' .. key)
+  			--log('found key' .. key)
   			table.insert(sortedTable, key)
   		end
     end
@@ -150,6 +149,13 @@ function vectorMath(params)
   --log('TABLE 2 DUMP * * * ')
   --dumpTable(t2)
   return returnVector
+end
+
+function vectorNumberToLetter(number)
+	if(number == 1) then return 'x'
+	elseif(number == 2) then return 'y'
+	elseif(number == 3) then return 'z'
+	else return nil end
 end
 
 function waitFrames(frames)

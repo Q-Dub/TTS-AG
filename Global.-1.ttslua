@@ -6,11 +6,9 @@ function onload(saveState)
 			decks = { E = '9eb064', I = '47d57c', K = '9e3d4c', WM = '28b771', FR = '8afe39',
 								G = 'fb6a79', C = 'a4d426', FL = 'c54cb9', WA = '0b6410'},
 
-			playerCards = { threePlayer = 'b4aad8', fourPlayer = 'eb2550', fivePlayer = '6fd961' },
-			occupations = '8fc8a5', -- actual occs this game, after the selected decks have been assembled
+			playerCards = {},
+			occs = '8fc8a5', -- actual occs this game, after the selected decks have been assembled
 			minors 			= '63ceb8'	-- actual minors this game, after the selected decks have been assembled
-
-			--stages = { '70a876', '05db33', 'e8aa98', 'fa1c5e', 'eb4a6b', 'caae5b' } -- 1-6, respectively
 		},
 		Boards = {
 			Players = { Red = '7c4084', Purple = 'd349b2', Green = '454b89', Blue = '858dea', White = '179cb5' },
@@ -20,6 +18,7 @@ function onload(saveState)
 				DayLab = {
 					cardPositions = {},
 					guid = '78928b',
+					-- -1, 5.2, 2.92
 					positionOffsets = { {3.202, 0, -4.35}, {0.282, 0, -4.35}, {3.202, 0, 0},
 															{0.282, 0, 0}, {3.202, 0, 4.531}, {0.282, 0, 4.531} },
 					rotation = {},
@@ -54,19 +53,18 @@ function onload(saveState)
 		},
 		Buttons = { dealCards ='809d48' },
 		Cards = {
-			stages 			=	{ 'daa46a', '50efb8', 'e21d4c', '92f140', 'b54da2', 'a1e455' }, -- 1-5 are decks, [6] is round 14
-			threePlayer = { clay = 'c2aaf9', wood2 = '11e22f', anyResource = '706011', occ = 'bc4db6' },
-			fourPlayer	= { clay2 = '37a094', wood2 = 'aadc49', wood = '91aa89', gSpot = '2ee1f1', occ = '2a1d9a', tp = '2a1d9a' },
-			fivePlayer 	= { clay3 = '1316e0', wood4 = '470341', zoo = 'b438d7', gSpot = '4db587', occ = 'd4d96d', tp = 'c8734c'},
+			beggars 		= 'f28a11',
+			heightOffset = 0.15, -- for dropping cards above snap points
+			loadedOccs = {},
+			loadedMinors = {},
 			roundCards 	= { sheep = '85b867', majorMinor = 'cda9b3', fences = 'e5f7cd', sowBake = '8eeb11', fg = 'bded46',
 										 stoneStage2 = '0d7a31', renoMajor = 'c8762e', boar = '6c1287', veg = '202efb', cattle = '1e18f2',
 										 stoneStage4 = 'd37bf8', plowSow = '1a8ef8', fgWithoutSpace = '618af7', renoFence = 'a1e455'},
-			beggingCardStack = 'f28a11'
+			stages 			= { 'e76b68', 'bd32c0', '25abf3', '128b47', 'ea78f6', 'a1e455' } -- 1-6, respectively
 		},
 		Draft = { indicators = { Purple = "b57b80", Green = "80bcd4", Blue = "1c4ce5", White = "76cb43", Red = "abf3a9" } },
 		Players = {
 			homePositions = {},
-			inGame = {},
 
 			--TODO populate dynamically with GUIDs from spawn board
 			peeps = { Purple = {'75d6bb', '8f914b', 'db306d', 'eb883c', 'f38a90'},
@@ -75,7 +73,15 @@ function onload(saveState)
 								Green = {'5ed89f', 'e082a2', 'fcd09c', 'b46095', 'e3f486'},
 								Blue = {'98536c', '182092', 'c3ee56', '578516', '6bce00'} },
 		},
-		ScriptingZones = { deckSelectButtons = '8b293c' },
+		SaveData = {
+			Cards = {
+				initialHandSize = 7,
+				InPlay = { numPlayerActions = ''}
+			},
+			Players = { inGame = {} },
+			roundNumber = 1
+	 },
+		ScriptingZones = { deckSelectButtons = '8b293c', occs = '346893', minors = '392c2f' },
 		SelectedDecks = {},
 		SpawnBoard = {
 			master = {
@@ -84,13 +90,24 @@ function onload(saveState)
 				reed = getObjectFromGUID('9c217a'), sheep = getObjectFromGUID('ca7c6c'), pig = getObjectFromGUID('d02a32'),
 				cow = getObjectFromGUID('ee948a') }
 		},
-		Style = { broadcastTint = {200/255,1,200/255} }
+		Style = { broadcastTint = {200/255,1,200/255} },
+		Tiles = { occ = '756dc7', minor = '2812f4'}
 	}
 
+	Ag.Bags.playerCards[3] = 'b4aad8'
+	Ag.Bags.playerCards[4] = 'eb2550'
+	Ag.Bags.playerCards[5] = '6fd961'
+
+	Ag.Cards[3] = { clay = 'c2aaf9', wood2 = '11e22f', anyResource = '706011', occ = 'bc4db6' }
+	Ag.Cards[4]	= { clay2 = '37a094', wood2 = 'aadc49', wood = '91aa89', gSpot = '2ee1f1', occ = '2a1d9a', tp = '2a1d9a' }
+	Ag.Cards[5] = { clay3 = '1316e0', wood4 = '470341', zoo = 'b438d7', gSpot = '4db587', occ = 'd4d96d', tp = 'c8734c' }
+
+	if( saveState ~= "") then
+    Ag.SaveData = JSON.decode(saveState)
+		log('loaded save data')
+		log('current round: ' .. Ag.SaveData.roundNumber)
+	end
 	createDealButton()
-	calculatePlayerBoardPositions()
-
-
   --UI.setAttribute("dealButtons", "active", false)
   --UI.setAttribute("dealLayout", "height", 40)
 	--startLuaCoroutine(Global, 'createDealButton')
@@ -102,6 +119,11 @@ function onload(saveState)
   --setup_button = setup()
   --minors_button = minors_setup()
   --occs_button = occs_setup()
+end
+
+function onSave()
+    return ""  --Remove -- at start & save to clear save data
+    --return JSON.encode(Ag.SaveData)
 end
 
 function update()
@@ -125,19 +147,112 @@ end
 
 function onClickDealCards()
 	getPlayers()
-	local numPlayers = #Ag.Players.inGame
+	local numPlayers = #Ag.SaveData.Players.inGame
 
 	if(numPlayers == 0) then
 		broadcastToAll('Agricola plays 1-5 players!\n Click your name in the top right and select "Change Color".', Ag.Style.broadcastTint)
-	elseif(numPlayers == 1) then
-		broadcastToAll('Starting solo game', Ag.Style.broadcastTint)
-		startGame(numPlayers)
-	elseif(numPlayers < 6) then
-		broadcastToAll('Starting game with ' .. numPlayers .. ' players', Ag.Style.broadcastTint)
-		startGame(numPlayers)
+	elseif( (numPlayers > 0) and (numPlayers < 6) ) then
+		startLuaCoroutine(Global, 'assembleDecks')
+		--assembleDecks()
+		startLuaCoroutine(Global, 'startGame')
+		if(numPlayers == 1) then broadcastToAll('Starting solo game', Ag.Style.broadcastTint)
+		else broadcastToAll('Starting game with ' .. numPlayers .. ' players', Ag.Style.broadcastTint) end
 	else
-		broadcastToAll('Wow, big party, but maximum 5 players!', Ag.Style.broadcastTint)
+		broadcastToAll('Wow, ' .. numPlayers .. ' players want to play, but max 5 players!', Ag.Style.broadcastTint)
 	end
+end
+
+function assembleDecks()
+	--local numPlayers = #Ag.SaveData.Players.inGame
+	local numPlayers = 4
+	local buttonZone = getObjectFromGUID(Ag.ScriptingZones.deckSelectButtons)
+	local deckButtons = buttonZone.getObjects() -- Zone.getObjects() returns {Object, ...}
+	local selectedDecks, sortedDecks, chosenDecks = {}, {}, {}
+	local deckButton
+
+	for _, deckButton in ipairs(deckButtons) do
+		if( deckButton.getStateId() == 1) then
+			table.insert( chosenDecks, deckButton.getName() )
+		end
+	end
+	Ag.selectedDecks = chosenDecks
+
+	if( Ag.selectedDecks == nil) then
+		broadcastToAll("Please select at least one deck.\nHover over the deck buttons and press '1' to add, or '2' to remove.", Ag.Style.broadcastTint)
+	elseif( #(Ag.selectedDecks) >= 1 ) then
+		local params = { unorderedTable = chosenDecks, orderedTable = Ag.Bags.decks }
+		sortedDecks = Game.call('matchTableKeyOrder', params)
+
+		local minorTile = getObjectFromGUID(Ag.Tiles.minor)
+		local minorTileVector = minorTile.getPosition()
+		minorTileVector.y = minorTileVector.y + Ag.Cards.heightOffset
+
+		local occTile = getObjectFromGUID(Ag.Tiles.occ)
+		local occTileVector = occTile.getPosition()
+		occTileVector.y = occTileVector.y + Ag.Cards.heightOffset
+
+		local broadcastString = 'Decks in Play: '
+		local deckName, i
+		local lastDeck = sortedDecks[#sortedDecks]
+
+		for i, deckName in ipairs(sortedDecks) do
+			local destinationMinorBag = getObjectFromGUID(Ag.Bags.minors)
+			--local destinationMinorBagPosition = destinationMinorBag.getPosition()
+			local destinationOccBag = getObjectFromGUID(Ag.Bags.occs)
+			--local destinationOccBagPosition = destinationOccBag.getPosition()
+			local deckBag = getObjectFromGUID(Ag.Bags.decks[deckName])
+
+			-- assemble the minors
+			deckBag.takeObject({
+				position = minorTileVector,
+				callback_function =
+				function(cards)
+					if(#Ag.Cards.loadedMinors == #sortedDecks) then
+						--cards.flip() 
+					end
+				end
+			})
+
+			-- assemble the +1 occs
+			deckBag.takeObject({
+				position = occTileVector,
+				callback_function = function(cards)
+					if(numPlayers > 2) then -- optionally assemble the +3 occs
+						deckBag.takeObject({
+							position = occTileVector,
+							callback_function = function(cards)
+								if( (numPlayers > 3) and (deckName ~= 'WM')) then -- optionally assemble the +4 occs (WM deck only has 1+ and 3+)
+									deckBag.takeObject({
+										position = occTileVector,
+										callback_function =
+										function(cards)
+											table.insert(Ag.Cards.loadedOccs, deckName)
+											if(#Ag.Cards.loadedOccs == #sortedDecks) then dealCards('occs') end
+										end
+									}) -- 4+ takeObject
+								else
+									table.insert(Ag.Cards.loadedOccs, deckName)
+									if(#Ag.Cards.loadedOccs == #sortedDecks) then dealCards('occs')	end
+								end -- 3+
+							end
+						})
+					else
+						table.insert(Ag.Cards.loadedOccs, deckName)
+						if(#Ag.Cards.loadedOccs == #sortedDecks) then dealCards('occs') end
+					end
+				end
+			}) -- 1+ takeObject
+
+			if(i == 1) then broadcastString = broadcastString .. deckName
+			else broadcastString = broadcastString .. ', ' .. deckName end
+		end
+		broadcastToAll(broadcastString, Ag.Style.broadcastTint)
+
+		--wait some time so decks can properly spawn before dealing
+		--broadcastToAll('Loading deck images...', Ag.Style.broadcastTint)
+		--broadcastToAll('waiting is over!', Ag.Style.broadcastTint)
+	end
+	return 1
 end
 
 function getPlayers()
@@ -145,7 +260,7 @@ function getPlayers()
 	inGame = Game.call('playerSnapshot')
 
 	local inGameCopy = copyTable(inGame)
-	Ag.Players.inGame = inGameCopy
+	Ag.SaveData.Players.inGame = inGameCopy
 end
 
 function copyTable(table)
@@ -160,92 +275,154 @@ function copyTable(table)
 	return copy
 end
 
-function startGame(numPlayers)
-	calculateCardPositions()
-	placePlayerDependentCards(4)
-	--placeRoundCards()
-	--assembleDecks(numPlayers)
-	--dealCards()
+function dealCards(cardType)
+	local zone = getObjectFromGUID(Ag.ScriptingZones[cardType])
+	local zoneObjects = zone.getObjects()
+	local cardStack = zoneObjects[1]
+	log(cardStack)
+	cardStack.flip()
+	cardStack.shuffle()
+	cardStack.deal(7)
+
+	--occBag.deal(Ag.SaveData.initialHandSize)
+	--for _, color in ipairs(g.SaveData.Players.inGame) do
+	--	Player[color].
+	--end
+	return 1
 end
 
-function placePlayerDependentCards(numPlayers)
-	print('setting up game for: ' .. numPlayers)
-	local bagGUID
-	if( numPlayers == 3 ) then
-		bagGUID = Ag.Bags.playerCards.threePlayer
-	elseif( numPlayers == 4 ) then
-		bagGUID = Ag.Bags.playerCards.fourPlayer
-	elseif( numPlayers == 5 ) then
-		bagGUID = Ag.Bags.playerCards.fivePlayer
-	end
+function startGame()
+	local numPlayers = #Ag.SaveData.Players.inGame
+	--placeNumPlayerActions(numPlayers)
+
+	--calculateCardPositions()
+	--placeRoundCards()
+
+	return 1 -- coroutine necessity
+end
+
+function placeNumPlayerActions(numPlayers)
+	local bagGUID = Ag.Bags.playerCards[numPlayers]
 
 	if( bagGUID ~= nil ) then
-		local cardPile = getObjectFromGUID(bagGUID)
-		cardPile.shuffle()
-		--log('============ DayLab positions ============')
-		--Game.call('dumpTable', Ag.Boards.Main.DayLab.cardPositions)
-		local i, cardPosition
-		for i, cardPosition in ipairs(Ag.Boards.Main.DayLab.cardPositions) do
-			if( cardPosition ~= nil ) then
-				--log('loop iteration i: ' .. i)
-				cardPile.takeObject({ position = cardPosition, rotation = Ag.Boards.Main.DayLab.rotation, smooth = true })
-				--Game.call('waitFrames', 15)
-				--startLuaCoroutine(Global, 'placePlayerDependentCards(5)')
-			end
+		local bag = getObjectFromGUID(bagGUID)
+		bag.shuffle()
+
+		local activeBoard = getObjectFromGUID(Ag.Boards.Main.DayLab.guid)
+		local snapPoints = activeBoard.getSnapPoints()
+		local snapOffset = activeBoard.getPosition()
+
+		local cardNumber = 1
+		while( bag.getQuantity() > 0 ) do
+			local cardVector = {}
+			cardVector[1] = snapOffset.x - snapPoints[cardNumber].position[1]
+			cardVector[2] = snapOffset.y - snapPoints[cardNumber].position[2] + 1
+			cardVector[3] = snapOffset.z - snapPoints[cardNumber].position[3]
+			local card = bag.takeObject( { position = cardVector } )
+			table.insert(Ag.SaveData.Cards.InPlay.numPlayerActions, card)
+			cardNumber = cardNumber + 1
+			--Game.call('waitFrames', 15)
 		end
 	end
 	return 1
 end
 
-function placeRoundCards()
-	local cardPositionCounter = 1
-	local roundCounter, activeBoard, currentStage, cardPile
-
-	for roundCounter = 1, 14 do
-		if( roundCounter < 8 ) then
-			activeBoard = Ag.Boards.Main.Fishing
-		else
-			activeBoard = Ag.Boards.Main.EndGame
-			cardPositionCounter = 1
+function resetNumPlayerActions()
+	local numPlayers = #Ag.SaveData.Players.inGame
+	local cardsInPlay = Ag.SaveData.Cards.InPlay.numPlayerActions
+	if (cardsInPlay ~= nil) then
+		for _, card in ipairs(cardsInPlay) do
+			--TODO place back in appropriate bag
 		end
-
-		Game.call('dumpTable', activeBoard)
-		currentStage = roundToStage(roundCounter)
-		cardPile = getObjectFromGUID(Ag.Bags.stages[currentStage])
-	--	log('* * * activeBoard.cardPosition[cardPositionCounter]:' .. activeBoard.cardPositions[cardPositionCounter])
-		cardPile.takeObject( { position = activeBoard.cardPositions[cardPositionCounter], rotation = activeBoard.rotation } )
-		cardPositionCounter = cardPositionCounter + 1
-		Game.call('waitFrames', 15)
 	end
 end
 
-function assembleDecks(numPlayers)
-	local buttonZone = getObjectFromGUID(Ag.ScriptingZones.deckSelectButtons)
-	local deckButtons = buttonZone.getObjects() -- Zone.getObjects() returns {Object, ...}
-	local selectedDecks, sortedDecks, chosenDecks = {}, {}, {}
-	local deckButton
+function nextRound()
+	flipRoundCard()
+end
 
-	for _, deckButton in ipairs(deckButtons) do
-		if( deckButton.getStateId() == 1) then
-			table.insert( chosenDecks, deckButton.getName() )
+function placeRoundCards()
+	local activeBoard = getObjectFromGUID(Ag.Boards.Main.Fishing.guid)
+	local snapPoints = activeBoard.getSnapPoints()
+	local rotation = snapPoints[1].rotation
+	local snapOffsets = activeBoard.getPosition()
+
+	local round, stage, snapIndex
+	for round = 1, 13 do
+		-- update board from round 8 onwards
+		if(round == 8) then
+			activeBoard = getObjectFromGUID(Ag.Boards.Main.EndGame.guid)
+			snapPoints = activeBoard.getSnapPoints()
+			--log(snapPoints)
+			rotation = snapPoints[1].rotation
+			snapOffsets = activeBoard.getPosition()
 		end
+
+		if(round < 8) then snapIndex = round else snapIndex = round - 7 end
+
+		stage = roundToStage(round)
+		local cardPile = getObjectFromGUID(Ag.Cards.stages[stage])
+
+		local cardVector = {}
+		cardVector[1] = snapOffsets.x - snapPoints[snapIndex].position[1]
+		cardVector[2] = snapOffsets.y - snapPoints[snapIndex].position[2] + 1
+		cardVector[3] = snapOffsets.z - snapPoints[snapIndex].position[3]
+
+		cardPile.shuffle()
+		local card = cardPile.takeObject( { position = cardVector, flip = false } ) --rotation = rotation,
+		card.interactable = false
 	end
-	Ag.selectedDecks = chosenDecks
+end
 
-	if( Ag.selectedDecks == nil) then
-		broadcastToAll("Please select at least one deck!", Ag.Style.broadcastTint)
-	elseif( #(Ag.selectedDecks) >= 1 ) then
-		local params = { unorderedTable = chosenDecks, orderedTable = Ag.Bags.decks }
+function calculateCardPositions()
+	local boardName, boardData, offsetTable
 
-		sortedDecks = Game.call('matchTableKeyOrder', params)
+	-- go through each board center (boardPosition)
+	for boardName, boardData in pairs(Ag.Boards.Main) do
+		local activeBoard = getObjectFromGUID(boardData.guid)
+		local activeBoardBounds = activeBoard.getBounds()
+		local activeBoardCenter = activeBoardBounds['center']
+		activeBoardCenter[2] = activeBoardCenter[2] + 0.5
 
-		local broadcastString = 'Decks in Play: '
-		local deckName
-		for _, deckName in ipairs(sortedDecks) do
-			broadcastString = broadcastString .. deckName
+		Ag.Boards.Main[boardName].rotation = activeBoard.getRotation() -- set the rotation dynamically
+		local activeBoardScale = activeBoard.getScale()
+		local scaleMultiplier = Game.call( 'vectorMath', {t1 = activeBoardScale, t2 = boardData.scale, operator = '/'} )
+
+		--round off differences in scale to 1 (same) if between 0.98 and 1.02
+		local multiplier
+		local roundedScaleMultiplier = {}
+		for _, multiplier in ipairs(scaleMultiplier) do
+			if( (multiplier < 1.02) and (multiplier > 0.98) ) then
+				table.insert(roundedScaleMultiplier, 1)
+			else
+				table.insert(roundedScaleMultiplier, multiplier)
+			end
 		end
-		broadcastToAll(broadcastString, Ag.Style.broadcastTint)
-	end
+		boardData.scaleMultiplier = roundedScaleMultiplier --replace previous division with rounded values if within tolerance
+
+		-- calculate positions based on offsets
+		local i
+		for i, offsetTable in ipairs(boardData.positionOffsets) do
+			local scaleFactoredOffsetTable = Game.call( 'vectorMath', { t1 = offsetTable, t2 = boardData.scaleMultiplier, operator = '*'} )
+			--log('* * * SCALE FACTORED OFFSETS * * *')
+			--log(scaleFactoredOffsetTable)
+			local cardVector = {}
+
+			--log('* * * Ag.Boards.Main[boardName].rotation * * * ')
+			--log(Ag.Boards.Main[boardName].rotation)
+			if( (Ag.Boards.Main[boardName].rotation[2] >= 180) and (Ag.Boards.Main[boardName].rotation[2] <= 359.99) ) then
+				cardVector = Game.call( 'vectorMath', { t1 = activeBoardCenter, t2 = scaleFactoredOffsetTable, operator = '-' } )
+			else
+				cardVector = Game.call( 'vectorMath', { t1 = activeBoardCenter, t2 = scaleFactoredOffsetTable, operator = '+' } )
+			end
+
+			table.insert(boardData.cardPositions, cardVector)
+
+			-- also create corresponding x,y,z indexes for 1,2,3 respectively
+			local xyzIndex = Game.call('vectorNumberToLetter', i)
+			if(xyzIndex ~= nil) then boardData.cardPositions[xyzIndex] = cardVector end
+		end
+	 end
 end
 
 function onClickDealOption()
@@ -289,52 +466,6 @@ function calculatePlayerBoardPositions()
 	end
 end
 
-function calculateCardPositions()
-	local boardName, boardData, offsetTable
-
-	-- go through each board center (boardPosition)
-	for boardName, boardData in pairs(Ag.Boards.Main) do
-		local activeBoard = getObjectFromGUID(boardData.guid)
-		local activeBoardBounds = activeBoard.getBounds()
-		local activeBoardCenter = activeBoardBounds['center']
-		activeBoardCenter[2] = activeBoardCenter[2] + 0.5
-
-		Ag.Boards.Main[boardName].rotation = activeBoard.getRotation() -- set the rotation dynamically
-		local activeBoardScale = activeBoard.getScale()
-		local scaleMultiplier = Game.call( 'vectorMath', {t1 = activeBoardScale, t2 = boardData.scale, operator = '/'} )
-
-		--round off differences in scale to 1 (same) if between 0.98 and 1.02
-		local multiplier
-		local roundedScaleMultiplier = {}
-		for _, multiplier in ipairs(scaleMultiplier) do
-			if( (multiplier < 1.02) and (multiplier > 0.98) ) then
-				table.insert(roundedScaleMultiplier, 1)
-			else
-				table.insert(roundedScaleMultiplier, multiplier)
-			end
-		end
-		boardData.scaleMultiplier = roundedScaleMultiplier --replace previous division with rounded values if within tolerance
-
-		-- calculate positions based on offsets
-		for _, offsetTable in ipairs(boardData.positionOffsets) do
-			local scaleFactoredOffsetTable = Game.call( 'vectorMath', { t1 = offsetTable, t2 = boardData.scaleMultiplier, operator = '*'} )
-			--log('* * * SCALE FACTORED OFFSETS * * *')
-			--Game.call('dumpTable', scaleFactoredOffsetTable)
-			local cardVector = {}
-
-			--log('* * * Ag.Boards.Main[boardName].rotation * * * ')
-			--Game.call('dumpTable', Ag.Boards.Main[boardName].rotation)
-			if( (Ag.Boards.Main[boardName].rotation[2] >= 180) and (Ag.Boards.Main[boardName].rotation[2] <= 359.99) ) then
-				cardVector = Game.call( 'vectorMath', { t1 = activeBoardCenter, t2 = scaleFactoredOffsetTable, operator = '-' } )
-			else
-				cardVector = Game.call( 'vectorMath', { t1 = activeBoardCenter, t2 = scaleFactoredOffsetTable, operator = '+' } )
-			end
-
-			table.insert(boardData.cardPositions, cardVector)
-		end
-	 end
-end
-
 function roundToStage(round)
 	if( (round >= 1) and (round <= 4) ) then return 1
 	elseif( (round >= 5 ) and (round <=7 ) ) then return 2
@@ -347,6 +478,8 @@ end
 
 -- bring peeps back to homes at the start of a new round
 function recallPeeps()
+	calculatePlayerBoardPositions()
+
 	local color, peepGUID, peepObj
 
 	for _, color in ipairs( Player.getAvailableColors() ) do
