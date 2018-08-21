@@ -338,6 +338,8 @@ function assembleProxyBags()
 	Ag.SaveData.Cards.ProxyOccBag = proxyOccBag
 	Ag.SaveData.Cards.ProxyMinorBag = ProxyMinorBag
 
+	--TODO with the proxy bags assembled, we just need to get a random guid,
+	-- followed by randomly picking one from the given bag, and deleting from the proxy bag
 	--log(proxyMinorBag)
 	--log('============================')
 	--log(proxyOccBag)
