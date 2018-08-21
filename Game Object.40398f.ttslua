@@ -1,5 +1,5 @@
 function onLoad(save_state)
-  self.interactable = false
+  --self.interactable = false
 end
 
 function dumpTable(table)
@@ -26,15 +26,24 @@ function dumpTable(table)
   end
 end
 
-function inTable(table, searchValue)
+function inTable(params)
+  local table = params.table
+  local searchValue = params.searchValue
+
   -- return false if table is nil
   if(table == nil) then return false end
 
   local k, v
 
+  --log('searching for value: ' .. searchValue)
   for k, v in pairs(table) do
-    if(v == searchValue) then return true end
+    --log('parsing value: ' .. v)
+    if(v == searchValue) then
+      --log('match found!')
+      return true
+    end
   end
+  --log('no match found')
   return false
 end
 
@@ -47,12 +56,11 @@ function playerSnapshot()
   for i, color in pairs(availableColors) do
     if( Player[color].seated ) then
       -- for some reason getAvailableColors() returns each color thrice, so ensure no duplicates
-      if( inTable(inGame, color) == false ) then
+      if( inTable({table = inGame, searchValue = color}) == false ) then
         table.insert(inGame, color)
       end
     end
   end
-
   return inGame
 end
 
@@ -163,4 +171,144 @@ function waitFrames(frames)
       coroutine.yield(0)
       frames = frames - 1
   end
+end
+
+function deal(params)
+  local stack = params.stack
+	local numCards = params.numCards
+	local targetGUIDs = params.targetGUIDs
+
+	for _, guid in pairs(targetGUIDs) do
+		local target = getObjectFromGUID(guid)
+		local targetPosition = target.getPosition()
+		--targetPosition.x = tostring( tonumber(targetPosition.x) + (counter * 0.1) )
+		local targetRotation = target.getRotation()
+		targetRotation.y = targetRotation.y + 180
+		local j
+		for j = 1, numCards do
+			--targetPosition.x = targetPosition.x + (j * 0.1)
+			targetPosition.y = targetPosition.y + (j/50)
+			stack.takeObject({position = targetPosition, rotation = targetRotation})
+		end
+	end
+end
+
+function isFaceUp(obj)
+	local r = obj.getRotation()
+	if( (r.y > 355) and (r.y < 5) ) then
+		return true
+	else
+		return false
+	end
+end
+
+function flip(params)
+  local obj = params.obj
+  local obverse = params.obverse
+	-- params: object to be flipped, obverse = boolean, whether to orient face up
+	obverse = obverse or false -- default to right side up if obverse is not given
+
+  local rotationVector = obj.getRotation()
+	if(obverse) then
+		rotationVector.z = 0
+	else
+    rotationVector.z = 180
+	end
+  obj.setRotation(rotationVector)
+end
+
+function getColorOrderCW(colorsInGame)
+  -- TODO function to determine clockwise order of players in colorsInGame array
+
+  -- temporary hard-coded version for now
+  local defaultOrder = {'Purple', 'Green', 'Blue', 'White', 'Red'}
+  local cwOrder, params = {}, {}
+  params.table = colorsInGame
+
+  local color
+  for _, color in ipairs(defaultOrder) do
+    params.searchValue = color
+    if(inTable(params)) then table.insert(cwOrder, color) end
+  end
+
+  --log('getColorOrderCW')
+  --log(cwOrder)
+  return cwOrder
+  --[[local color
+  for _, color in ipairs(colorsInGame) do
+    local handData = Player[color].getPlayerHand()
+  end]]
+end
+
+function calculateSpawnVector(params)
+  -- used to calculate spawning locations when given a snap point,
+  -- offset (global location of object with attached snap points,
+  -- and an additional height offset)
+  local snapVector = params.snapVector
+  local offsetVector = params.offsetVector
+  local heightOffset = params.heightOffset
+
+  local spawnVector = {}
+  spawnVector.x = offsetVector.x - snapVector.position.x
+  spawnVector.y = offsetVector.y - snapVector.position.y + heightOffset
+  spawnVector.z = offsetVector.z - snapVector.position.z
+
+  return spawnVector
+end
+
+function spawnScriptingZone(params)
+  local positionVector = params.position
+  local scale = params.scale
+
+	spawnObject( {
+		type = 'ScriptingTrigger',
+		position =  positionVector,
+		scale = scale
+	} )
+end
+
+function guidsToObjects(params)
+	-- take a indexed table of guids and return a table of corresponding objects
+	local table = params.table
+	local isIndexed = params.isIndexed
+	local returnTable = {}
+
+	if( table == nil ) then
+		log('error guidsToObj_indexed: table is nil')
+		return nil
+	end
+
+	if(isIndexed) then
+		for _, guid in ipairs(table) do
+			if( type(guid) ~= 'string' ) then
+				log('error guidsToObj_indexed: guid is not a string')
+			else
+				returnTable.insert( getObjectFromGUID(guid) )
+			end
+		end
+	else
+		local key
+		for key, guid in pairs(table) do
+			if( type(guid) ~= 'string' ) then
+				log('error guidsToObj_indexed: guid is not a string')
+			else
+				returnTable[key] = getObjectFromGUID(guid)
+			end
+		end
+  end
+
+	return returnTable
+end
+
+function setTableProps(params)
+	-- iterate over a table of objects and set all properties
+	local table = params.table
+	local props = params.props
+	local obj, prop, value
+
+	for _, obj in pairs(table) do
+		for prop, value in pairs(props) do
+			obj[prop] = value
+		end
+	end
 end
