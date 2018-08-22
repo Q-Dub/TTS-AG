@@ -1,4 +1,6 @@
 function onload(saveState)
+	math.randomseed( os.time() )
+
 	Game = getObjectFromGUID('40398f') -- general helper object for common tasks
 
 	Ag = {
@@ -117,7 +119,10 @@ function onload(saveState)
 				startPlayer
 			},
 			roundNumber = 0,
-			ScriptingZones = {} -- dynamic zones for triggering action placement
+			ScriptingZones = {}, -- dynamic zones for triggering action placement
+			Zones = {
+				MainHands = {}, -- zone objects
+			}
 	 },
 		ScriptingZones = {
 			deckSelectButtons = '8b293c',
@@ -137,7 +142,8 @@ function onload(saveState)
 				cow = 'ee948a', food_5 = '68d5e2' }
 		},
 		Style = { broadcastTint = {200/255,1,200/255} },
-		Tiles = { occ = '756dc7', minor = '2812f4'}
+		Tiles = { occ = getObjectFromGUID('756dc7'),
+							minor = getObjectFromGUID('2812f4') }
 	}
 
 	Ag.Bags.playerCards[3] = 'b4aad8'
@@ -162,16 +168,14 @@ function onload(saveState)
 		{ guid = 'dc9600', name = 'reed', qty = 1 }, { guid = 'c9a1e2', name = 'food', qty = 1}
 	}
 
+--[[
 	if( saveState ~= '') then
     Ag.SaveData = JSON.decode(saveState)
 	end
+	]]
 
-	createObjectsFromGUIDs()
 	disableDraftIndicators()
-	createDealButton()
-	createNextRoundButton()
-	createTestButton()
-  createTestButtonTwo()
+	createButtons()
 	--UI.setAttribute('dealButtons', 'active', false)
   --UI.setAttribute('dealLayout', 'height', 40)
   --minors_button = minors_setup()
@@ -183,8 +187,13 @@ function createObjectsFromGUIDs()
 		isIndexed = false,
 		table = Ag.SpawnBoards.Master
 	}
-
 	Ag.SpawnBoards.Master = guidsToObjects(params)
+
+	-- hand zone instances for players in the game
+	local color
+	for _, color in ipairs(Ag.SaveData.Players.inGame) do
+		Ag.SaveData.Zones.MainHands[color] = getObjectFromGUID( Ag.ScriptingZones.Players.Hands[color] )
+	end
 end
 
 function disableDraftIndicators()
@@ -197,6 +206,13 @@ function disableDraftIndicators()
 	setTableProps(params)
 end
 
+function createButtons()
+	createDealButton()
+	createNextRoundButton()
+	createTestButton()
+	createTestButtonTwo()
+end
+
 function createDealButton()
 	local dealButton = getObjectFromGUID(Ag.Buttons.dealCards)
   local params = {
@@ -206,6 +222,30 @@ function createDealButton()
 	  height = 900
 	}
   dealButton.createButton(params)
+end
+
+function createDealSingleOccButton()
+	--local dealButton = getObjectFromGUID(Ag.Tiles.occ)
+  local params = {
+		click_function = 'onClickDealSingleOcc',
+	  position = {0, 0, 0},
+	  width = 900,
+	  height = 900
+	}
+  --dealButton.createButton(params)
+	Ag.Tiles.occ.createButton(params)
+end
+
+function createDealSingleMinorButton()
+	--local dealButton = getObjectFromGUID(Ag.Tiles.minor)
+  local params = {
+		click_function = 'onClickDealSingleMinor',
+	  position = {0, 0, 0},
+	  width = 900,
+	  height = 900
+	}
+  --dealButton.createButton(params)
+	Ag.Tiles.minor.createButton(params)
 end
 
 function createNextRoundButton()
@@ -221,22 +261,36 @@ end
 
 function onClickDealCards(obj)
 	--getPlayers()
-	testWithPlayers(5)
-	Ag.SaveData.Cards.initialHandSize = 7 -- TODO ui to select hand size
+	testWithPlayers(1)
+	createObjectsFromGUIDs() -- some objects depend on knowing which players are in the game
+
+	Ag.SaveData.Cards.initialHandSize = 1 -- TODO ui to select hand size
 
 	local numPlayers = #Ag.SaveData.Players.inGame
 
 	if(numPlayers == 0) then
 		broadcastToAll('Agricola plays 1-5 players!\n Click your name in the top right and select \'Change Color\'.', Ag.Style.broadcastTint)
 	elseif( (numPlayers > 0) and (numPlayers < 6) ) then
-		--startLuaCoroutine(self, 'assembleDecks')
-		assembleDecks()
+		assembleProxyBags()
+		dealFromProxyBag(Ag.SaveData.Cards.ProxyOccBag, Ag.SaveData.Cards.initialHandSize, Ag.SaveData.Zones.MainHands)
+		createDealSingleOccButton()
+		createDealSingleMinorButton()
 		if(numPlayers == 1) then broadcastToAll('Starting solo game', Ag.Style.broadcastTint)
 		else broadcastToAll('Starting game with ' .. numPlayers .. ' players', Ag.Style.broadcastTint) end
 		obj.destruct()
 	else
 		broadcastToAll('Wow, ' .. numPlayers .. ' players want to play, but max 5 players!', Ag.Style.broadcastTint)
 	end
+end
+
+function onClickDealSingleOcc()
+	local faceDown = true
+	dealFromProxyBag(Ag.SaveData.Cards.ProxyOccBag, 1, {Ag.Tiles.occ}, faceDown)
+end
+
+function onClickDealSingleMinor()
+	local faceDown = true
+	dealFromProxyBag(Ag.SaveData.Cards.ProxyMinorBag, 1, {Ag.Tiles.minor}, faceDown)
 end
 
 function onClickNextRoundButton(obj, player_clicker_color)
@@ -293,26 +347,14 @@ function assembleProxyBags()
 	sortedDecks = Game.call('matchTableKeyOrder', params)
 	Ag.SaveData.Cards.InPlay.decks = sortedDecks
 
-	local minorTile = getObjectFromGUID(Ag.Tiles.minor)
-	local minorTileVector = minorTile.getPosition()
-	minorTileVector.y = minorTileVector.y + Ag.HeightOffsets.tile -- offset cards don't spawn inside tile
-
-	local occTile = getObjectFromGUID(Ag.Tiles.occ)
-	local occTileVector = occTile.getPosition()
-	occTileVector.y = occTileVector.y + Ag.HeightOffsets.tile -- offset cards don't spawn inside tile
-
 	local deckName, currentBag, deckNumber, stacksNeeded
 	local proxyOccBag, proxyMinorBag = {}, {}
 
-	log('checking bags with ' .. numPlayers .. ' players')
-
 	for _, deckName in ipairs(sortedDecks) do
 		-- * * * add the minors to the proxy bag * * *
-		log('trying to get guid: ' .. Ag.Bags.Decks[deckName].minors)
 		currentBag = getObjectFromGUID(Ag.Bags.Decks[deckName].minors)
 		local minor
 		local numMinors = currentBag.getQuantity()
-		log('found minors: ' .. numMinors)
 		for minor = 1, numMinors do
 			-- create a table of GUIDs, from which we will randomize the hands
 			table.insert( proxyMinorBag, Ag.Bags.Decks[deckName].minors )
@@ -331,35 +373,58 @@ function assembleProxyBags()
 					-- create a table of GUIDs, from which we will randomize the hands
 				table.insert( proxyOccBag, Ag.Bags.Decks[deckName][i] )
 			end
-
 		end
 	end
 
 	Ag.SaveData.Cards.ProxyOccBag = proxyOccBag
-	Ag.SaveData.Cards.ProxyMinorBag = ProxyMinorBag
+	Ag.SaveData.Cards.ProxyMinorBag = proxyMinorBag
 
-	--TODO with the proxy bags assembled, we just need to get a random guid,
-	-- followed by randomly picking one from the given bag, and deleting from the proxy bag
 	--log(proxyMinorBag)
 	--log('============================')
 	--log(proxyOccBag)
 end
 
-function calculateOccStacksNeeded(decksListInPlay, numPlayers)
-	-- a count of how many totaly stack of occs (1+, 3+, 4+) are needed
-	if(decksListInPlay == nil or numPlayers < 1) then return 0 end
+function dealFromProxyBag(proxyBag, numCards, objList, faceDown)
+	faceDown = faceDown or false
+	local obj, i, currentBag, rotation
 
-	local decksInPlay = #decksListInPlay
-	local stacksNeeded = decksInPlay
-	if(numPlayers > 2) then stacksNeeded = stacksNeeded + decksInPlay end
-	if(numPlayers > 3) then stacksNeeded = stacksNeeded + decksInPlay end
+	for _, obj in pairs(objList) do
+		cardGUIDs = getListFromProxyBag(proxyBag, numCards)
 
-	-- subtract one for WM (has no 4+ Occs)
-	if( Game.call('inTable', { table = decksListInPlay, searchValue = 'WM' }) ) then
-		stacksNeeded = stacksNeeded - 1
+		local guid
+		for _, guid in ipairs(cardGUIDs) do
+			currentBag = getObjectFromGUID(guid)
+			currentBag.shuffle()
+			position = Game.call('positionAboveObject', {object = obj, heightOffset = 0.25})
+			rotation = obj.getRotation()
+			rotation.y = rotation.y - 180
+			if(faceDown) then rotation.z = 180 end
+			currentBag.takeObject({
+				index = 1,
+				smooth = false,
+				position = position,
+				rotation = rotation,
+				callback_function = function(obj)
+				end
+			})
+		end
+	end
+end
+
+function getListFromProxyBag(proxyBag, numCards)
+	local numItems = #proxyBag
+	local card, bagGUID, i
+	local cardGUIDs = {}
+
+	for i = 1, numCards do
+		card = math.random(1, numItems)
+		bagGUID = proxyBag[card]
+		table.insert( cardGUIDs, bagGUID)
+		table.remove(proxyBag, card)
+		numItems = numItems - 1
 	end
 
-	return stacksNeeded
+	return cardGUIDs
 end
 
 function onOccsLoaded(obj, deckName, occType, stacksNeeded)
@@ -404,10 +469,8 @@ function startDraftCoroutine()
 	occStack.flip()
 	occStack.shuffle()
 
-	log(1.1)
 	--build hand zones we are dealing to
 	--local color
-	log(2)
 	local targetZones = {}
 	log(3)
 	for _, color in ipairs(Ag.SaveData.Players.inGame) do
@@ -1085,8 +1148,8 @@ function update()
 end
 
 function onSave()
-    --return ''  --Remove -- at start & save to clear save data
-    return JSON.encode(Ag.SaveData)
+    return ''  --Remove -- at start & save to clear save data
+    --return JSON.encode(Ag.SaveData)
 end
 
 function onObjectEnterScriptingZone(zone, obj)
@@ -1191,8 +1254,9 @@ end
 
 --TEST BUTTON TWO
 function onClickTestButtonTwo(obj, player_clicker_color)
-	testWithPlayers(5)
-	assembleProxyBags()
+	--testWithPlayers(5)
+	--assembleProxyBags()
+	dealFromProxyBag(Ag.SaveData.Cards.ProxyOccBag, Ag.SaveData.Cards.initialHandSize, Ag.SaveData.Zones.MainHands)
 end
 
 -- From Game Object (things that break because of userdata violations)

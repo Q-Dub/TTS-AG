@@ -312,3 +312,15 @@ function setTableProps(params)
 		end
 	end
 end
+
+function positionAboveObject(params)
+  local obj = params.object
+  local returnVector = obj.getPosition()
+  local bounds = obj.getBounds()
+  local heightOffset = params.heightOffset or 0
+
+  --returnVector[3] = returnVector[3] + (bounds.size.z) + heightOffset
+  returnVector[2] = returnVector[2] + heightOffset
+  returnVector.y = returnVector.y + heightOffset
+  return returnVector
+end

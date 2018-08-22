@@ -1,5 +1,7 @@
+-- Between Purple & Red
 function onLoad()
-    self.interactable = false;
+    --self.interactable = false;
+
     self.createButton({
     label = "",
     click_function = "onButtonClick",
@@ -10,7 +12,7 @@ function onLoad()
     position = {0, 40.7, 32.8},
     rotation = {-90, 0, 0},
     font_size = 200
-    })
+  })
 end
 
 function onButtonClick()
