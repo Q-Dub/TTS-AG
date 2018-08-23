@@ -129,8 +129,8 @@ function onload(saveState)
 			minors = '392c2f',
 			occs = '346893',
 			Players = {
-				Draft = { Purple = '30e021', Green = '6d2710', Blue = 'fb4fd8', White = '338995', Red = 'e98fe7' },
-				Hands = { Purple = '77f215', Green = 'aecae1', Blue = 'f273b8', White = 'db122a', Red = '700997' }
+				Draft = { Purple = '30e021', Green = '6d2710', Blue = 'fb4fd8', White = 'db122a', Red = 'e98fe7' },
+				Hands = { Purple = '77f215', Green = 'aecae1', Blue = 'f273b8', White = '338995', Red = '700997' }
 			}
 		},
 		SelectedDecks = {},
@@ -142,6 +142,8 @@ function onload(saveState)
 				cow = 'ee948a', food_5 = '68d5e2' }
 		},
 		Style = { broadcastTint = {200/255,1,200/255} },
+		Table = '0b2ed0',
+		Temp = {},
 		Tiles = { occ = getObjectFromGUID('756dc7'),
 							minor = getObjectFromGUID('2812f4') }
 	}
@@ -174,7 +176,7 @@ function onload(saveState)
 	end
 	]]
 
-	disableDraftIndicators()
+	--disableDraftIndicators()
 	createButtons()
 	--UI.setAttribute('dealButtons', 'active', false)
   --UI.setAttribute('dealLayout', 'height', 40)
@@ -208,9 +210,9 @@ end
 
 function createButtons()
 	createDealButton()
-	createNextRoundButton()
-	createTestButton()
-	createTestButtonTwo()
+	--createNextRoundButton()
+	--createTestButton()
+	--createTestButtonTwo()
 end
 
 function createDealButton()
@@ -227,6 +229,7 @@ end
 function createDealSingleOccButton()
 	--local dealButton = getObjectFromGUID(Ag.Tiles.occ)
   local params = {
+		label = 'Draw an\nOcc',
 		click_function = 'onClickDealSingleOcc',
 	  position = {0, 0, 0},
 	  width = 900,
@@ -239,6 +242,7 @@ end
 function createDealSingleMinorButton()
 	--local dealButton = getObjectFromGUID(Ag.Tiles.minor)
   local params = {
+		label = 'Draw a\nMinor',
 		click_function = 'onClickDealSingleMinor',
 	  position = {0, 0, 0},
 	  width = 900,
@@ -260,37 +264,71 @@ function createNextRoundButton()
 end
 
 function onClickDealCards(obj)
-	--getPlayers()
-	testWithPlayers(1)
+	getPlayers()
+	--testWithPlayers(3)
 	createObjectsFromGUIDs() -- some objects depend on knowing which players are in the game
 
-	Ag.SaveData.Cards.initialHandSize = 1 -- TODO ui to select hand size
+	Ag.SaveData.Cards.initialHandSize = 7 -- TODO ui to select hand size
 
 	local numPlayers = #Ag.SaveData.Players.inGame
 
 	if(numPlayers == 0) then
 		broadcastToAll('Agricola plays 1-5 players!\n Click your name in the top right and select \'Change Color\'.', Ag.Style.broadcastTint)
 	elseif( (numPlayers > 0) and (numPlayers < 6) ) then
+		startLuaCoroutine(self, 'setupCards')
 		assembleProxyBags()
-		dealFromProxyBag(Ag.SaveData.Cards.ProxyOccBag, Ag.SaveData.Cards.initialHandSize, Ag.SaveData.Zones.MainHands)
+		dealCards('occs')
+		if(numPlayers > 1) then
+			startDraft()
+			broadcastToAll('Starting game with ' .. numPlayers .. ' players', Ag.Style.broadcastTint)
+		else
+			broadcastToAll('Starting solo game', Ag.Style.broadcastTint)
+			dealCards('minors')
+			Wait.time(startGame, 4)
+		end
+
 		createDealSingleOccButton()
 		createDealSingleMinorButton()
-		if(numPlayers == 1) then broadcastToAll('Starting solo game', Ag.Style.broadcastTint)
-		else broadcastToAll('Starting game with ' .. numPlayers .. ' players', Ag.Style.broadcastTint) end
 		obj.destruct()
 	else
 		broadcastToAll('Wow, ' .. numPlayers .. ' players want to play, but max 5 players!', Ag.Style.broadcastTint)
 	end
 end
 
+function dealCards(cardType)
+	local color
+	local rotation = { 0, 0, 0 }
+
+	for _, color in ipairs(Ag.SaveData.Players.inGame) do
+		if(color == 'Purple' or color == 'Red') then rotation = { 0, 180, 0 } end
+		if(color == 'White') then rotation = { 0, 90, 0 } end
+		local handPosition = getPlayerHandPosition(color)
+		handPosition.y = handPosition.y + 1
+		local proxyBag
+		if(cardType == 'occs') then
+			proxyBag = Ag.SaveData.Cards.ProxyOccBag
+		else
+			proxyBag = Ag.SaveData.Cards.ProxyMinorBag
+		end
+
+		dealFromProxyBag( proxyBag, Ag.SaveData.Cards.initialHandSize, handPosition, rotation, color )
+	end
+end
+
 function onClickDealSingleOcc()
 	local faceDown = true
-	dealFromProxyBag(Ag.SaveData.Cards.ProxyOccBag, 1, {Ag.Tiles.occ}, faceDown)
+	local target = getObjectFromGUID(Ag.ScriptingZones.occs)
+	local position = target.getPosition()
+	local rotation = target.getRotation()
+	dealFromProxyBag(Ag.SaveData.Cards.ProxyOccBag, 1, position, rotation, '', faceDown)
 end
 
 function onClickDealSingleMinor()
 	local faceDown = true
-	dealFromProxyBag(Ag.SaveData.Cards.ProxyMinorBag, 1, {Ag.Tiles.minor}, faceDown)
+	local target = getObjectFromGUID(Ag.ScriptingZones.minors)
+	local position = target.getPosition()
+	local rotation = target.getRotation()
+	dealFromProxyBag(Ag.SaveData.Cards.ProxyMinorBag, 1, position, rotation, '', faceDown)
 end
 
 function onClickNextRoundButton(obj, player_clicker_color)
@@ -384,29 +422,27 @@ function assembleProxyBags()
 	--log(proxyOccBag)
 end
 
-function dealFromProxyBag(proxyBag, numCards, objList, faceDown)
-	faceDown = faceDown or false
-	local obj, i, currentBag, rotation
+function dealFromProxyBag(proxyBag, numCards, position, rotation, color, reverse)
+	reverse = reverse or false
+	local obj, i, currentBag, key
 
-	for _, obj in pairs(objList) do
-		cardGUIDs = getListFromProxyBag(proxyBag, numCards)
+	cardGUIDs = getListFromProxyBag(proxyBag, numCards)
+	local guid
+	for _, guid in ipairs(cardGUIDs) do
+		currentBag = getObjectFromGUID(guid)
+		currentBag.shuffle()
 
-		local guid
-		for _, guid in ipairs(cardGUIDs) do
-			currentBag = getObjectFromGUID(guid)
-			currentBag.shuffle()
-			position = Game.call('positionAboveObject', {object = obj, heightOffset = 0.25})
-			rotation = obj.getRotation()
-			rotation.y = rotation.y - 180
-			if(faceDown) then rotation.z = 180 end
-			currentBag.takeObject({
+		if(faceDown) then rotation.z = 180 end
+
+		if( color ~= '' ) then
+			currentBag.deal(1, color, 1)
+		else
+			local params = {
 				index = 1,
-				smooth = false,
 				position = position,
-				rotation = rotation,
-				callback_function = function(obj)
-				end
-			})
+				rotation = rotation
+			}
+			currentBag.takeObject(params)
 		end
 	end
 end
@@ -438,17 +474,12 @@ function onOccsLoaded(obj, deckName, occType, stacksNeeded)
 end
 
 function startDraft()
-	log('startDraft')
-	startLuaCoroutine(self, 'startDraftCoroutine')
-	startLuaCoroutine(self, 'setupCards')
+	Ag.SaveData.phase = 'draft'
 end
 
 function setupCards()
-  --log('setupCards 1')
 	startLuaCoroutine(self, 'placeNumPlayerActions')
-  --log('setupCards 2')
 	startLuaCoroutine(self, 'placeRoundCards')
-  --log('setupCards 3')
 	waitFrames(100)
 	--log(Ag.SaveData.Cards.InPlay.actionSpaces)
 	spawnScriptingZones()
@@ -472,16 +503,13 @@ function startDraftCoroutine()
 	--build hand zones we are dealing to
 	--local color
 	local targetZones = {}
-	log(3)
 	for _, color in ipairs(Ag.SaveData.Players.inGame) do
 		log('adding hand zone for ' .. color)
 		table.insert(targetZones,  Ag.ScriptingZones.Players.Hands[color])
 	end
-	log(4)
 	Game.call('deal', { stack = occStack, numCards = Ag.SaveData.Cards.initialHandSize, targetGUIDs = targetZones})
 	--occStack.deal(Ag.SaveData.Cards.initialHandSize, color)
 
-	log(5)
 	local minorZone = getObjectFromGUID(Ag.ScriptingZones.minors)
 	local zoneObjects = minorZone.getObjects()
 	local minorStack = zoneObjects[1]
@@ -507,16 +535,14 @@ function passCards()
 		passHands(false) -- pass Occs CCW
 	elseif(picksMade == maxPicks) then
 		cleanupHands()
-		dealMinors()
+		dealCards('minors')
 	elseif(picksMade < (maxPicks * 2)) then
 		passHands(true) -- pass minors CW
 	else
 		--log('done drafting')
 		Ag.SaveData.phase = 'workerPlacement'
 		--waitFrames(150) -- wait for the draft indicators to flip before deleting
-		deleteDraftIndicators()
-		cleanupHands()
-		startLuaCoroutine(self, 'startNextRound')
+		startGame()
 	end
 
 	return 1
@@ -545,8 +571,10 @@ function passHands(clockwise)
 end
 
 function getPlayerHandPosition(color)
+	--log('getting handPosition for: ' .. color)
 	local handData = Player[color].getPlayerHand()
-	return { handData.pos_x, handData.pos_y, handData.pos_z}
+	return { handData.pos_x, handData.pos_y, handData.pos_z,
+					 x = handData.pos_x, y = handData.pos_y, z = handData.pos_z }
 end
 
 function cleanupHands()
@@ -643,6 +671,13 @@ function spawnScriptingZone(target, saveLocation)
   }
 
   spawnObject(spawnParams)
+end
+
+function startGame()
+	deleteDraftIndicators()
+	cleanupHands()
+	startLuaCoroutine(self, 'startNextRound')
+	createNextRoundButton()
 end
 
 function startNextRound()
@@ -743,8 +778,8 @@ end
 
 function placeNumPlayerActions()
   local numPlayers = #Ag.SaveData.Players.inGame
-	log(numPlayers)
-	if(numPlayers < 3) then return 1 end
+
+	if( numPlayers < 3 ) then return 1 end
 	local bagGUID = Ag.Bags.playerCards[numPlayers]
 
 	if( bagGUID == nil ) then
@@ -761,7 +796,8 @@ function placeNumPlayerActions()
 	local snapOffset = activeBoard.getPosition()
 
   local cardVector = {}
-  for cardNumber = 1, bag.getQuantity() do
+	local numCards = bag.getQuantity()
+  for cardNumber = 1, numCards do
 		cardVector[1] = snapOffset.x - snapPoints[cardNumber].position[1]
 		cardVector[2] = snapOffset.y - snapPoints[cardNumber].position[2]
 		cardVector[3] = snapOffset.z - snapPoints[cardNumber].position[3]
@@ -1102,6 +1138,12 @@ function waitFrames(frames)
   end
 end
 
+function waitOneFrame()
+  coroutine.yield(0)
+
+	return 1
+end
+
 function waitTwoFrames()
 	local frames = 2
   while frames > 0 do
@@ -1180,6 +1222,7 @@ function onObjectEnterScriptingZone(zone, obj)
 		end
 	end
 
+--[[
 	if( zoneGUID == Ag.ScriptingZones.occs ) then
 		if( obj.tag == "Deck") then -- check if Nick is hurling veggies
 			Ag.SaveData.Cards.InPlay.occDecksInZone = Ag.SaveData.Cards.InPlay.occDecksInZone + 1
@@ -1197,6 +1240,7 @@ function onObjectEnterScriptingZone(zone, obj)
 			end
 		end
 	end
+	]]
 end
 
 function checkAllOccsAssmebled()
