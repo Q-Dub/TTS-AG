@@ -284,7 +284,7 @@ function onClickDealCards(obj)
 		else
 			broadcastToAll('Starting solo game', Ag.Style.broadcastTint)
 			dealCards('minors')
-			Wait.time(startGame, 4)
+			Wait.time(startGame, 6)
 		end
 
 		createDealSingleOccButton()
@@ -333,6 +333,10 @@ end
 
 function onClickNextRoundButton(obj, player_clicker_color)
   startLuaCoroutine(self, 'startNextRound')
+end
+
+function onClickDealOption()
+  printToAll('Deal Options Changed!')
 end
 
 function createTestButton()
@@ -685,20 +689,45 @@ function startNextRound()
 	Ag.SaveData.roundNumber = Ag.SaveData.roundNumber + 1
 	Ag.SaveData.Cards.InPlay.actionSpaces[Ag.SaveData.roundNumber].setLock(false)
 
-	flipNextRoundCard(Ag.SaveData.roundNumber)
-  waitFrames(5)
+	startLuaCoroutine(self, 'flipNextRoundCard')
 	startLuaCoroutine(self, 'seedResources')
-	waitFrames(50)
-	Ag.SaveData.Cards.InPlay.actionSpaces[Ag.SaveData.roundNumber].setLock(true)
+
 	return 1
 end
 
-function flipNextRoundCard(roundNum)
+function flipNextRoundCard()
+	local roundNum = Ag.SaveData.roundNumber
 	--local target = getObjectFromGUID(Ag.SaveData.Cards.InPlay.actionSpaces[roundNum])
   local target = Ag.SaveData.Cards.InPlay.actionSpaces[roundNum]
 	target.interactable = true
   target.setLock(false)
 	target.flip()
+
+	Ag.Temp.waiting = true
+	local waitID = Wait.time(
+		function()
+			if( isResting(target) ) then
+				target.setLock(true)
+				Ag.Temp.waiting = false
+			end
+		end, 0.1, -1 )
+
+	while(Ag.Temp.waiting) do
+		coroutine.yield(0) -- wait till the next frame before checking again
+	end
+
+	Ag.Temp.waiting = nil
+	Wait.stop(waitID)
+
+	return 1
+end
+
+function stop(waitID)
+	Wait.stop(waitID)
+end
+
+function isResting(obj)
+	return obj.resting
 end
 
 function seedResources()
@@ -952,10 +981,6 @@ function calculateCardPositions()
 			if(xyzIndex ~= nil) then boardData.cardPositions[xyzIndex] = cardVector end
 		end
 	 end
-end
-
-function onClickDealOption()
-  printToAll('Deal Options Changed!')
 end
 
 function onChangedHandSize()
