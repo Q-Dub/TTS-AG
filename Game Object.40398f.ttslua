@@ -2,10 +2,27 @@ function onLoad(save_state)
   --self.interactable = false
 end
 
-function dumpTable(table)
+function copyTable(params)
+	-- tables returned from external objects are protected from access, so need to copy them
+  local table = params.table
+  local k, v
+	local copy = {}
+
+	for k, v in pairs(table) do
+			copy[k] = v
+	end
+
+	return copy
+end
+
+function dumpTable(params)
+  local table = params.table
+  local maxFields = params.maxFields or 0 -- default to 0, meaning show all
+  local iteration = params.iteration or 1
+
   if( table == nil) then
     log('Game.dumpTable Table is empty, exiting!')
-    return
+    return nil
   end
 
   if( type(table) ~= 'table' ) then
@@ -13,15 +30,39 @@ function dumpTable(table)
     return
   end
 
+  if(iteration == 1) then
+    log('* * * * * TABLE DUMP * * * * *')
+  end
+
+  local keyCounter = 1
   local key, value
-  log('=== output from Game.dumpTable ===')
   for key, value in pairs(table) do
     if( type(value) == 'table' ) then
       log('key: ' .. key)
-      log(' value is table...')
-      dumpTable(value)
+      log('=== value is a table ===')
+      iteration = iteration + 1
+      keyCounter = keyCounter + 1
+      dumpTable({ table = value, maxFields = maxFields, iteration = iteration } )
     else
-      log("key: " .. key .. ", value:" .. value)
+      if( (maxFields == 0) or (keyCounter < maxFields) ) then
+        log("key: ")
+        if(key == nil) then
+          log('nil')
+        else
+          log(key)
+        end
+
+        log("value:")
+        if(value == nil) then
+          log('nil')
+        else
+          log(value)
+        end
+        keyCounter = keyCounter + 1
+      else
+        log('warning: maxFields reached, skipping rest')
+        break
+      end
     end
   end
 end
@@ -45,6 +86,45 @@ function inTable(params)
   end
   --log('no match found')
   return false
+end
+
+function removeIndex(params)
+	-- apparently sometimes table.remove doesn't work!
+	local table = params.table
+	local index = params.index
+	local newTable = {}
+
+	local key, value
+  local newIndex = 1
+	for key, value in ipairs(table) do
+		if(key ~= index) then
+			newTable[newIndex] = value
+      newIndex = newIndex + 1
+		end
+	end
+	return newTable
+end
+
+function tableSize(params)
+  -- # operator only works for iTables
+  local key
+  local count = 0
+  for key in pairs(params.table) do
+    count = count + 1
+  end
+
+  return count
+end
+
+function destroyGUIDList(table)
+  if(table == nil) then return false end
+
+  local guid, obj
+  for _, guid in pairs(table) do
+    --log('getting guid: ' .. guid)
+    obj = getObjectFromGUID(guid)
+    obj.destruct()
+  end
 end
 
 function playerSnapshot()
@@ -194,8 +274,12 @@ function deal(params)
 end
 
 function isFaceUp(obj)
+  local interactStatus = obj.interactable
+  if(interactStatus == false) then obj.interactable = true end
 	local r = obj.getRotation()
-	if( (r.y > 355) and (r.y < 5) ) then
+  obj.interactable = interactStatus
+
+	if( (r.z > 355) or (r.z < 5) ) then
 		return true
 	else
 		return false
