@@ -101,21 +101,12 @@ function onload(saveState)
 		Players = {
 			draftIndicators = { Purple = 'b57b80', Green = '80bcd4', Blue = '1c4ce5', White = '76cb43', Red = 'abf3a9' },
 			homePositions = {},
-
-			--TODO populate dynamically as player spawns new ones from spawn board
-			peeps = {
-				Purple = { '43855d', '388cf3' },
-				Red = { 'e66902', '93283f' },
-				White = { '5b51c1', '513e3a' },
-				Green = { 'c605ed', 'a20582' },
-				Blue = { '236b56', 'e79989' }
-			},
 			startPlayerMarker = '7ea756'
 		},
 		SaveData = {
 			Cards = {
 				Draft = { pickNumber = 1 },
-				initialHandSize = 7,
+				initialHandSize = 1,
 				InPlay = {
 					RoundCardData = {},
 					decks = {},
@@ -134,7 +125,14 @@ function onload(saveState)
 			Players = {
 				DraftPicks = {},
 				inGame = {},
-				startPlayer = ''
+				peeps = {
+					Purple = { '3e264f', '02e0cb' },
+					Red = { 'e66902', '93283f' },
+					White = { '5b51c1', '513e3a' },
+					Green = { 'c605ed', 'a20582' },
+					Blue = { '236b56', 'e79989' }
+				},
+				startPlayer = '',
 			},
 			roundNumber = 0,
 	 	},
@@ -155,7 +153,15 @@ function onload(saveState)
 				food = 'b9754f', grain = '2459f4', veg = '391c13',
 				wood = 'c4d916', clay = '4e06e8',  stone = 'fe3238',
 				reed = '9c217a', sheep = 'ca7c6c', boar = 'd02a32',
-				cow = 'ee948a', food_5 = '68d5e2' }
+				cow = 'ee948a', food_5 = '68d5e2'
+			},
+			Players = {
+				Purple = { peepBag = '997519'},
+				Green = { peepBag = '320883'},
+				Blue = { peepBag = '6f3666'},
+				White = { peepBag = 'ecd257'},
+				Red = { peepBag = '578d4a'}
+			}
 		},
 		Style = { broadcastTint = {200/255,1,200/255} },
 		Table = '0b2ed0',
@@ -175,7 +181,7 @@ function onload(saveState)
 
 	Ag.Cards.PlayerCards[4]	= {
 		{ guid = '05b151', name = 'wood', qty = 1 }, { guid = '3cb828', name = 'wood', qty = 2 },
-		{ guid = '12a697', name = 'clay', qty = 1 }, { guid = 'bc3466', name = 'occ' },
+		{ guid = '12a697', name = 'clay', qty = 2 }, { guid = 'bc3466', name = 'occ' },
 		{ guid = '10953e', name = 'gSpot' }, { guid = 'c418a2', name = 'food', qty = 1 } -- food is really T.P.
 	}
 
@@ -430,6 +436,7 @@ function onClickDealOption()
 end
 
 function createTestButton()
+	--log('entered createTestButton')
 	local testButton = getObjectFromGUID('5a218f')
   local params = {
 		click_function = 'onClickTestButton',
@@ -593,9 +600,9 @@ function cardsDealt()
 end
 
 function removeUnusedSeats()
--- TODO remove all pieces as well (low priority, as all can be manually deleted,
--- and additional pain if drafting has started, and someone wants to jump in without reseting draft)
-local colorInGame = false
+	-- TODO remove all pieces as well (low priority, as all can be manually deleted,
+	-- and additional pain if drafting has started, and someone wants to jump in without reseting draft)
+	local colorInGame = false
 
 	for color, indicator in pairs(Ag.Players.draftIndicators) do
 		colorInGame = Game.call('inTable', { table = Ag.SaveData.Players.inGame, searchValue = color } )
@@ -763,6 +770,7 @@ function startGame()
 	Ag.SaveData.phase = 'WP' -- Worker Placement
 	getObjectFromGUID(Ag.Buttons.passCW).destruct()
 	getObjectFromGUID(Ag.Buttons.passCCW).destruct()
+
 	-- wait till cards have spawned before attaching scripts
 	while(cardsReady() == false) do
 		coroutine.yield(0)
@@ -771,6 +779,8 @@ function startGame()
 	while( Ag.SaveData.Cards.seedScriptsAttached == false) do
 		coroutine.yield(0)
 	end
+
+	attachPeepScripts()
 
 	deleteDraftIndicators()
 	cleanupHands()
@@ -812,6 +822,10 @@ function startNextRound()
 	end
 
 	Ag.SaveData.roundNumber = Ag.SaveData.roundNumber + 1
+
+	if(Ag.SaveData.roundNumber > 1) then
+		recallPeeps()
+	end
 	startLuaCoroutine(self, 'flipNextRoundCard')
 	startLuaCoroutine(self, 'seedResources')
 
@@ -1254,8 +1268,10 @@ function calculatePlayerBoardPositions()
 
 	for color, guid in pairs(Ag.Boards.Players) do
 		local board = getObjectFromGUID(guid)
-		local position = board.getPosition()
-		Ag.Players.homePositions[color] = position
+		if(board ~= nil) then
+			local position = board.getPosition()
+			Ag.Players.homePositions[color] = position
+		end
 	end
 end
 
@@ -1269,18 +1285,33 @@ function roundToStage(round)
 	else return 0 end
 end
 
+function isPeepContainer(guid)
+	-- returns the player color of the peep container (spawn board)
+	-- this came from, or false
+
+	for color, data in pairs(Ag.SpawnBoards.Players) do
+		if(data['peepBag'] == guid) then return color end
+	end
+	return false
+end
+
+function onPeepSpawned(params)
+	table.insert(Ag.SaveData.Players.peeps[params.color], params.guid)
+	--log(Ag.SaveData.Players.peeps)
+end
+
 -- bring peeps back to homes at the start of a new round
 function recallPeeps()
 	calculatePlayerBoardPositions()
 
 	local color, peepGUID, peepObj
 
-	for _, color in ipairs( Player.getAvailableColors() ) do
+	for _, color in ipairs(Ag.SaveData.Players.inGame) do
 		--if(Ag.peeps[color] ~= nil) then
-		for _, peepGUID in pairs(Ag.peeps[color]) do
+		for _, peepGUID in pairs(Ag.SaveData.Players.peeps[color]) do
 			peepObj = getObjectFromGUID(peepGUID)
 			if( peepObj ~= nil) then
-				peepObj.setPositionSmooth(Ag.homePositions[color], false, true)
+				peepObj.setPositionSmooth(Ag.Players.homePositions[color], false, false)
 			end
 				--peepPosition = peepObj.getPosition()
 				--if(peepPosition[1] > -42) then
@@ -1405,16 +1436,60 @@ function readyForPass(color)
 	return true
 end
 
--- * * * GLOBAL LISTENERS (events that fire automatically)* * *
+function isPeep(obj)
+	local name = obj.getName()
+
+	-- peeps are named for the color of the player they are
+	--local inGame = Game.call('inTable', { table = Ag.SaveData.Players.inGame, searchValue = name })
+	local legalColor = Ag.Boards.Players[name] ~= nil
+	if(legalColor) then
+		return name
+	else
+		return false
+	end
+end
+
+function attachPeepScripts()
+	-- attach scripts to starting peeps (avoiding file bloat by having the code already on them)
+	local color
+	for _, color in ipairs(Ag.SaveData.Players.inGame) do
+		local guid
+		for _, guid in ipairs(Ag.SaveData.Players.peeps[color]) do
+			local peep = getObjectFromGUID(guid)
+			attachPeepScript(peep, color)
+		end
+	end
+end
+
+function attachPeepScript(obj, color)
+	-- attaches the script to a single peep
+	local peepScript = [===[
+		function onload()
+			broadcastAfterSpawn()
+		end
+
+		function broadcastAfterSpawn()
+			if(self.spawning == true) then
+				Wait.frames(broadcastAfterSpawn, 1)
+			else
+				Global.call('onPeepSpawned', { guid = self.getGUID(), color = ']===] .. color .. [===['} )
+			end
+		end
+	]===]
+
+	obj.setLuaScript(peepScript)
+end
+
+-- * * * GLOBAL LISTENERS (events that fire automatically) * * *
 function update()
 	--[[ The Update function. This is called once per frame. --]]
 end
 
 function onSave()
-
+	return ''
 	--Game.call('dumpTable', { table = Ag.SaveData, maxFields = 3 } )
   --return ''  --Remove -- at start & save to clear save data
-  return JSON.encode(Ag.SaveData) -- CAN'T SAVE TABLES WITH NUMERIC AND STRING KEYS
+  --return JSON.encode(Ag.SaveData) -- CAN'T SAVE TABLES WITH NUMERIC AND STRING KEYS
 end
 
 function onObjectEnterScriptingZone(zone, obj)
@@ -1559,22 +1634,47 @@ end
 function onObjectLeaveScriptingZone(zone, obj)
 	local objGUID = obj.getGUID()
 	local zoneGUID = zone.getGUID()
-
---[[
-	if(Ag.SaveData.phase == 'draft') then
-		-- iterate the player hand zones and see if an object left their hand
-		local color, handGUID, foundZone
-		for color, handGUID in pairs(Ag.ScriptingZones.Players.Draft) do
-			--log('searching for card leaving zone: ' .. handGUID)
-			if(zoneGUID == handGUID) then
-				printToAll(color .. ' is having second thoughts...')
-				local di = Ag.Players.draftIndicators[color]
-				ulFlipRL(di)
-				local draftPicks = Ag.SaveData.Players.DraftPicks[color]
-				if(draftPicks ~= nil) then table.remove(draftPicks, #draftPicks) end
+	--[[
+		if(Ag.SaveData.phase == 'draft') then
+			-- iterate the player hand zones and see if an object left their hand
+			local color, handGUID, foundZone
+			for color, handGUID in pairs(Ag.ScriptingZones.Players.Draft) do
+				--log('searching for card leaving zone: ' .. handGUID)
+				if(zoneGUID == handGUID) then
+					printToAll(color .. ' is having second thoughts...')
+					local di = Ag.Players.draftIndicators[color]
+					ulFlipRL(di)
+					local draftPicks = Ag.SaveData.Players.DraftPicks[color]
+					if(draftPicks ~= nil) then table.remove(draftPicks, #draftPicks) end
+				end
 			end
-		end
-	end]]
+		end]]
+end
+
+function onObjectDestroy(obj)
+	local guid = obj.getGUID()
+
+	-- check if we're deleting a family member
+	local isPeep = Game.call('inTable', { table = Ag.SaveData.Players.peeps, searchValue = guid } )
+	if(isPeep) then
+		deleteInTable( { table = Ag.SaveData.Players.peeps, searchValue = guid } )
+		--table.remove(Ag.SaveData.Players.peeps, guid)
+		--log(Ag.SaveData.Players.peeps)
+	end
+end
+
+function onObjectLeaveContainer(container,  obj)
+	-- WARNING obj.guid will be wrong, because it hasn't spawned yet!!!
+
+	local peepColor = isPeepContainer(container.getGUID())
+	if(peepColor ~= false) then attachPeepScript(obj, peepColor) end
+end
+
+function onObjectSpawn(spawnObj)
+	local peepColor = isPeep(spawnObj)
+	if( peepColor ~= false ) then
+		--onPeepSpawned( { color = peepColor, guid = spawnObj.getGUID() } )
+	end
 end
 
 -- * * * From Game Object (things that break because of userdata violations)
@@ -1644,6 +1744,30 @@ function isTableResting(params)
 		if(obj.resting ~= true) then return false end
 	end
 	return true
+end
+
+function deleteInTable(params)
+  -- delete all occurances of a given value within a table
+  -- works recursively
+  local t = params.table
+  local searchValue = params.searchValue
+
+  -- return false if table is nil
+  if(t == nil) then return nil end
+
+  local k, v
+  --log('searching for value: ' .. searchValue)
+  for k, v in pairs(t) do
+    --log('parsing value: ' .. v)
+    if( type(v) == 'table') then
+      v = deleteInTable( { table = v, searchValue = searchValue } )
+      t[k] = v
+    elseif( v == searchValue ) then
+      table.remove(t, k)
+    end
+  end
+
+  return t
 end
 
 -- * * * TEST BUTTONs * * *

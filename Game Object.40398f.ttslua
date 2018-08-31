@@ -68,24 +68,54 @@ function dumpTable(params)
 end
 
 function inTable(params)
+  -- works recursively
+
   local table = params.table
   local searchValue = params.searchValue
+  local found = false
 
   -- return false if table is nil
   if(table == nil) then return false end
 
-  local k, v
-
   --log('searching for value: ' .. searchValue)
+  --log(table)
+  local k, v
   for k, v in pairs(table) do
     --log('parsing value: ' .. v)
-    if(v == searchValue) then
+    if(type(v) == 'table') then
+      found = inTable( { table = v, searchValue = searchValue } )
+      return found
+    elseif(v == searchValue) then
       --log('match found!')
       return true
     end
   end
-  --log('no match found')
+
   return false
+end
+
+function deleteInTable(params)
+  -- delete all occurances of a given value within a table
+  -- works recursively
+  local t = params.table
+  local searchValue = params.searchValue
+
+  -- return false if table is nil
+  if(t == nil) then return nil end
+
+  local k, v
+  --log('searching for value: ' .. searchValue)
+  for k, v in pairs(t) do
+    --log('parsing value: ' .. v)
+    if( type(v) == 'table') then
+      v = deleteInTable( { table = v, searchValue = searchValue } )
+      t[k] = v
+    elseif( v == searchValue ) then
+      table.remove(t, k)
+    end
+  end
+
+  return t
 end
 
 function removeIndex(params)
