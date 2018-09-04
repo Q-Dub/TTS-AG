@@ -106,7 +106,7 @@ function onload(saveState)
 		SaveData = {
 			Cards = {
 				Draft = { pickNumber = 1 },
-				initialHandSize = 1,
+				initialHandSize = 7,
 				InPlay = {
 					RoundCardData = {},
 					decks = {},
@@ -369,7 +369,6 @@ function onClickDealCards(obj)
 				broadcastToAll('Starting game with ' .. numPlayers .. ' players', Ag.Style.broadcastTint)
 			else
 				broadcastToAll('Starting solo game', Ag.Style.broadcastTint)
-				startLuaCoroutine(self, 'startGame')
 				dealCards('minors') --TODO deal minors to minor draft hand
 			end
 		else
@@ -1270,6 +1269,7 @@ function calculatePlayerBoardPositions()
 		local board = getObjectFromGUID(guid)
 		if(board ~= nil) then
 			local position = board.getPosition()
+
 			Ag.Players.homePositions[color] = position
 		end
 	end
@@ -1311,6 +1311,8 @@ function recallPeeps()
 		for _, peepGUID in pairs(Ag.SaveData.Players.peeps[color]) do
 			peepObj = getObjectFromGUID(peepGUID)
 			if( peepObj ~= nil) then
+				-- drop a little above the board
+				 Ag.Players.homePositions[color].y = Ag.Players.homePositions[color].y + 1
 				peepObj.setPositionSmooth(Ag.Players.homePositions[color], false, false)
 			end
 				--peepPosition = peepObj.getPosition()
@@ -1478,6 +1480,11 @@ function attachPeepScript(obj, color)
 	]===]
 
 	obj.setLuaScript(peepScript)
+end
+
+function createSeedingGrid()
+	-- for splaying goods, we create a 3x3 grid of vector positions
+
 end
 
 -- * * * GLOBAL LISTENERS (events that fire automatically) * * *
@@ -1778,10 +1785,6 @@ function onClickTestButton(obj, player_clicker_color)
 	assembleProxyBags()
 	dealCards('occs')
 	Ag.Cards.occsDealt = true
-	--dealCards('minors')
-	--startLuaCoroutine(self, 'startDraft')
-	--startLuaCoroutine(self, 'startDraft')
-  --startLuaCoroutine(self, 'startGame')
 end
 
 function onClickTestButtonTwo(obj, player_clicker_color)
