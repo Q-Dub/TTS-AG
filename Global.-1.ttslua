@@ -101,6 +101,8 @@ function onload(saveState)
 		Players = {
 			draftIndicators = { Purple = 'b57b80', Green = '80bcd4', Blue = '1c4ce5', White = '76cb43', Red = 'abf3a9' },
 			homePositions = {},
+			homeRotations = {},
+			startFood = { Purple = 'bdb99f', Green = 'd8104a', Blue = '92513f', White = '6a3791', Red = '4dd18c' },
 			startPlayerMarker = '7ea756'
 		},
 		SaveData = {
@@ -166,8 +168,8 @@ function onload(saveState)
 		Style = { broadcastTint = {200/255,1,200/255} },
 		Table = '0b2ed0',
 		Temp = {},
-		Tiles = { occ = getObjectFromGUID('756dc7'),
-							minor = getObjectFromGUID('2812f4') }
+		Tiles = { occ = '756dc7',
+							minor = '2812f4' }
 	}
 
 	Ag.Bags.playerCards[3] = 'b4aad8'
@@ -192,6 +194,10 @@ function onload(saveState)
 		{ guid = 'dc9600', name = 'reed', qty = 1 }, { guid = 'c9a1e2', name = 'food', qty = 1}
 	}
 
+	if(Ag.testMode == true) then
+		Ag.SaveData.Cards.initialHandSize = 1
+	end
+
 	if( saveState ~= '') then
     --Ag.SaveData = JSON.decode(saveState)
 		--createObjectsFromSaveState(Ag.SaveData)
@@ -201,10 +207,9 @@ function onload(saveState)
 		--disableDraftIndicators()
 		createButtons()
 	else
-		createNextRoundButton()
-		attachSeedScripts()
-
-		createObjectsFromGUIDs()
+		--spawnScriptingZones()
+		--createNextRoundButton()
+		--attachSeedScripts()
 	end
 	--UI.setAttribute('dealButtons', 'active', false)
   --UI.setAttribute('dealLayout', 'height', 40)
@@ -242,6 +247,9 @@ function createObjectsFromGUIDs()
 	for _, color in ipairs(Ag.SaveData.Players.inGame) do
 		Ag.ScriptingZones.Players.HandObjects[color] = getObjectFromGUID( Ag.ScriptingZones.Players.Hands[color] )
 	end
+
+	Ag.Tiles.occ = getObjectFromGUID(Ag.Tiles.occ)
+	Ag.Tiles.minor = getObjectFromGUID(Ag.Tiles.minor)
 end
 
 function disableDraftIndicators()
@@ -353,6 +361,7 @@ end
 
 function onClickDealCards(obj)
 	getPlayers()
+	assignStartPlayer()
 	local numPlayers = #Ag.SaveData.Players.inGame
 
 	if(numPlayers == 0) then
@@ -362,6 +371,7 @@ function onClickDealCards(obj)
 			Ag.Cards.occsDealt = true
 			createObjectsFromGUIDs() -- some objects depend on knowing which players are in the game
 			setupCards()
+			spawnScriptingZones()
 			assembleProxyBags()
 			dealCards('occs')
 			if(numPlayers > 1) then
@@ -369,6 +379,8 @@ function onClickDealCards(obj)
 				broadcastToAll('Starting game with ' .. numPlayers .. ' players', Ag.Style.broadcastTint)
 			else
 				broadcastToAll('Starting solo game', Ag.Style.broadcastTint)
+				startLuaCoroutine(self, 'startGame')
+				Ag.gameStarted = true
 				dealCards('minors') --TODO deal minors to minor draft hand
 			end
 		else
@@ -380,6 +392,30 @@ function onClickDealCards(obj)
 	else
 		broadcastToAll('Wow, ' .. numPlayers .. ' players want to play, but max 5 players!', Ag.Style.broadcastTint)
 	end
+end
+
+function assignStartPlayer()
+		local numPlayers = #Ag.SaveData.Players.inGame
+		local startPlayer =	math.random(1, numPlayers)
+		--log(Ag.SaveData.Players.inGame[startPlayer] .. ' is the start playe
+		refreshPlayerBoardPositions()
+		movePylon(startPlayer)
+		deleteFood(startPlayer, 1)
+end
+
+function movePylon(playerPosition)
+	local playerColor = Ag.SaveData.Players.inGame[playerPosition]
+ 	local boardPosition = Ag.Players.homePositions[playerColor]
+	boardPosition.y = boardPosition.y + 2
+	local pylon = getObjectFromGUID(Ag.Players.startPlayerMarker)
+	pylon.setPositionSmooth(boardPosition, false, false)
+end
+
+function deleteFood(player, qty)
+	-- for now this just can delete one of the initial food
+	local playerColor = Ag.SaveData.Players.inGame[player]
+	local food = getObjectFromGUID(Ag.Players.startFood[playerColor])
+	food.destruct()
 end
 
 function dealCards(cardType)
@@ -399,6 +435,8 @@ function dealCards(cardType)
 			proxyBag = Ag.SaveData.Cards.ProxyMinorBag
 		end
 
+		log('handSize:')
+		log(Ag.SaveData.Cards.initialHandSize)
 		dealFromProxyBag( proxyBag, Ag.SaveData.Cards.initialHandSize, handPosition, rotation, color )
 	end
 end
@@ -717,6 +755,7 @@ function testWithPlayers(numPlayers)
 	for i = 1, numPlayers do
 		table.insert( Ag.SaveData.Players.inGame, possibleColors[i] )
 	end
+	   createObjectsFromGUIDs() -- depends on number of players
 end
 
 function copyTable(table)
@@ -732,6 +771,7 @@ function copyTable(table)
 end
 
 function spawnScriptingZones()
+	-- create scripting zones above all the cards (numPlayers + round)
 	local actionSpace
 	for _, actionSpace in ipairs(Ag.Cards.InPlay.numPlayerActions) do
 		spawnScriptingZone(actionSpace, Ag.ScriptingZones.actionSpaces)
@@ -827,7 +867,7 @@ function startNextRound()
 	end
 	startLuaCoroutine(self, 'flipNextRoundCard')
 	startLuaCoroutine(self, 'seedResources')
-
+	--startLuaCoroutine(self, 'splayResources')
 	return 1
 end
 
@@ -846,11 +886,10 @@ function flipNextRoundCard()
 	return 1
 end
 
-function stop(waitID)
-	Wait.stop(waitID)
-end
-
 function seedResources()
+	-- wait a few frames while the next round card is still flipping
+	coroutine.yield(0) coroutine.yield(0) coroutine.yield(0)
+
   local numPlayers = #Ag.SaveData.Players.inGame
 	local actionSpaces = Ag.SaveData.Cards.InPlay.actionSpaces
   local params = { spawnBoard = Ag.SpawnBoards.Master, infoTable = {} }
@@ -874,7 +913,7 @@ function seedResources()
 		end
   end
 
-  -- * * * * * seed the daylab board (snap points 8-11) * * * * *
+  -- * * * * * seed the fishing board (snap points 8-11) * * * * *
   local dayLabBoard = getObjectFromGUID(Ag.Boards.Main.Fishing.guid)
   local snapPoints = dayLabBoard.getSnapPoints()
   local snapOffset = dayLabBoard.getPosition()
@@ -1013,7 +1052,6 @@ function placeRoundCards()
 					attachSeedScript(card)
 	        cardsSpawned = cardsSpawned + 1
 					if(cardsSpawned == 14) then
-						spawnScriptingZones()
 						Ag.SaveData.Cards.roundCardsSpawned = true
 					end
 				end
@@ -1212,12 +1250,20 @@ end
 
 function attachSeedScript(card)
 	local commonScript = [===[
+	 splayGrid = {} -- 3x3 grid for making resources visible w/o mouseover
+
+	 function onload()
+		 Game = getObjectFromGUID('40398f')
+		 seededGoods = 0 -- track number of goods on this card (not counting card effects)
+	 end
+
 	 function seed(params)
      local spawnBoard = params.spawnBoard
      local infoTable = params.infoTable
 
+		 if(#splayGrid == 0) then splayGrid = calculateSplayGrid(3, 3) end
+
      local cardRotation = self.getRotation()
-     local cardPosition = { position = self.getPosition() }
      local guid = self.getGUID()
 
      local info
@@ -1227,24 +1273,88 @@ function attachSeedScript(card)
          -- grain and veg don't get seeded here
          if( info.name ~= 'grain' and info.name ~= 'veg') then
            if( spawnBoard[info.name] ~= nil ) then
+						 if(info.name == 'food') then
+						 	--log(splayGrid)
+						 end
              -- spawn the appropriate quantity if seeding player card
              local numLoops = info.qty or 1
+						 --local numLoops = 1
 
+						 -- * * * code for when not splaying * * *
              local destinationVector = self.getPosition()
-             destinationVector[2] = destinationVector[2] + 2
-             destinationVector.y = destinationVector.y + 2
+             destinationVector.y = destinationVector.y + 2.2
+
              for numGoods = 1, numLoops do
+							 seededGoods = seededGoods + 1
+							 --log(seededGoods)
+							 --log('splayGrid dest:')
+							 --log(splayGrid[seededGoods])
                spawnBoard[info.name].takeObject({
             	    position = destinationVector,
-                  rotation = self.getRotation(),
-									smooth = false
+									--position = splayGrid[seededGoods],
+                  rotation = {cardRotation.x, cardRotation.y, cardRotation.z + 30},
+									smooth = false,
+									callback_function = function(obj)
+										obj.use_snap_points = false
+										--obj.setLock(true)
+									end
                 })
               end
             end -- spawnBoard ~= nil
           end -- not grain or veg
         end  -- matched guid
       end -- for loop
-    end -- funciton
+    end -- function
+
+		function calculateSplayGrid(width, height)
+			local returnGrid = {}
+			local p = self.getPosition()
+			local nb = self.getBoundsNormalized()
+			--local gapDistance = (nb.size.x / (width + 1)) / 1.5
+			local gapDistance = nb.size.x / (width + 1)
+			local leftEdge = p.x - (nb.size.x / 2)
+			--log('leftEdge:')
+			--log(leftEdge)
+
+			-- start on the top left, and track new positions with gridVector
+			local leftGridEdge = leftEdge + gapDistance
+			--log('gapDist: ' .. gapDistance)
+			--leftGridEdge[1] =  leftGridEdge[1] + gapDistance -- have one gap unit distance on each edge
+			heightOffset = 0.2
+			--local gridVector = { x = leftGridEdge, y = heightOffset + p.y, z = p.z - (nb.size.z / 2) + 0.8 }
+			--local gridVector = { x = leftGridEdge, y = heightOffset + p.y, z = p.z }
+			--gridVector = Game.call('copyTable', { table = gridVector })
+
+			local w, h
+			for h = 1, height do
+				for w = 1, width do
+					--local vectorCopy = Game.call('copyTable', { table = gridVector })
+					local gridSize = #returnGrid
+					if(gridSize == 0) then returnGrid[1] = { x = leftGridEdge, y = heightOffset + p.y, z = p.z }
+					else
+						local nextGridPoint = {}
+
+						-- new row
+						if(w == 1) then
+							 nextGridPoint.x = leftGridEdge
+							 nextGridPoint.z = returnGrid[gridSize].z + (1.2 * gapDistance)
+						else
+							 nextGridPoint.x = returnGrid[gridSize].x + gapDistance
+							 nextGridPoint.z = returnGrid[gridSize].z
+						end
+						nextGridPoint.y = returnGrid[gridSize].y
+
+						table.insert(returnGrid, vectorCopy)
+					end
+
+					--gridVector[1] = Game.call('copyValue', { value = gridVector[1] }) + gapDistance
+					--gridVector[2] = initialHeight + ( 0.2 * w )
+					--log('after adding:')
+					--log(gridVector[1])
+				end
+			end
+			return returnGrid
+		end
 	]===]
 
   if(card ~= nil) then
@@ -1262,15 +1372,16 @@ function attachSeedScript(card)
 	end]]
 end
 
-function calculatePlayerBoardPositions()
+function refreshPlayerBoardPositions()
 	local color, guid
 
 	for color, guid in pairs(Ag.Boards.Players) do
 		local board = getObjectFromGUID(guid)
 		if(board ~= nil) then
 			local position = board.getPosition()
-
+			local rotation = board.getRotation()
 			Ag.Players.homePositions[color] = position
+			Ag.Players.homeRotations[color] = rotation
 		end
 	end
 end
@@ -1302,17 +1413,15 @@ end
 
 -- bring peeps back to homes at the start of a new round
 function recallPeeps()
-	calculatePlayerBoardPositions()
+	refreshPlayerBoardPositions()
 
 	local color, peepGUID, peepObj
-
 	for _, color in ipairs(Ag.SaveData.Players.inGame) do
 		--if(Ag.peeps[color] ~= nil) then
 		for _, peepGUID in pairs(Ag.SaveData.Players.peeps[color]) do
 			peepObj = getObjectFromGUID(peepGUID)
 			if( peepObj ~= nil) then
-				-- drop a little above the board
-				 Ag.Players.homePositions[color].y = Ag.Players.homePositions[color].y + 1
+				Ag.Players.homePositions[color].y = Ag.Players.homePositions[color].y + 2.5
 				peepObj.setPositionSmooth(Ag.Players.homePositions[color], false, false)
 			end
 				--peepPosition = peepObj.getPosition()
@@ -1482,18 +1591,13 @@ function attachPeepScript(obj, color)
 	obj.setLuaScript(peepScript)
 end
 
-function createSeedingGrid()
-	-- for splaying goods, we create a 3x3 grid of vector positions
-
-end
-
 -- * * * GLOBAL LISTENERS (events that fire automatically) * * *
 function update()
 	--[[ The Update function. This is called once per frame. --]]
 end
 
 function onSave()
-	return ''
+	--return ''
 	--Game.call('dumpTable', { table = Ag.SaveData, maxFields = 3 } )
   --return ''  --Remove -- at start & save to clear save data
   --return JSON.encode(Ag.SaveData) -- CAN'T SAVE TABLES WITH NUMERIC AND STRING KEYS
@@ -1780,15 +1884,19 @@ end
 -- * * * TEST BUTTONs * * *
 function onClickTestButton(obj, player_clicker_color)
   testWithPlayers(4)
-	createObjectsFromGUIDs()
 	setupCards()
 	assembleProxyBags()
 	dealCards('occs')
 	Ag.Cards.occsDealt = true
+	--dealCards('minors')
+	--startLuaCoroutine(self, 'startDraft')
+	--startLuaCoroutine(self, 'startDraft')
+  --startLuaCoroutine(self, 'startGame')
 end
 
 function onClickTestButtonTwo(obj, player_clicker_color)
-	--testWithPlayers(5)
+	testWithPlayers(5)
+	assignStartPlayer()
 	--assembleProxyBags()
-	dealFromProxyBag(Ag.SaveData.Cards.ProxyOccBag, Ag.SaveData.Cards.initialHandSize, Ag.SaveData.Zones.MainHands)
+	--dealFromProxyBag(Ag.SaveData.Cards.ProxyOccBag, Ag.SaveData.Cards.initialHandSize, Ag.SaveData.Zones.MainHands)
 end

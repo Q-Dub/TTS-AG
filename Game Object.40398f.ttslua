@@ -15,6 +15,25 @@ function copyTable(params)
 	return copy
 end
 
+function copyValue(params)
+  -- lua always passes by reference, hence this nonsense
+  local copy = params.value
+  return copy
+end
+
+function deepTableCopy(obj, seen)
+  -- Handle non-tables and previously-seen tables.
+  if type(obj) ~= 'table' then return obj end
+  if seen and seen[obj] then return seen[obj] end
+
+  -- New table; mark it as seen an copy recursively.
+  local s = seen or {}
+  local res = setmetatable({}, getmetatable(obj))
+  s[obj] = res
+  for k, v in pairs(obj) do res[deepCopy(k, s)] = deepCopy(v, s) end
+  return res
+end
+
 function dumpTable(params)
   local table = params.table
   local maxFields = params.maxFields or 0 -- default to 0, meaning show all
